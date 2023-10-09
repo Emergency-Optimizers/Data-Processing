@@ -1,0 +1,41 @@
+# source: https://github.com/sindre0830/Workflow-Templates
+name: Continuous Integration (CI)
+# when to run the workflow
+on:
+  push:
+    paths:
+    - '.github/workflows/continuous-integration.yml'
+    - 'source/**'
+  pull_request:
+  workflow_dispatch:
+# instructions the workflow will perform
+jobs:
+  build:
+    # environment to run on
+    runs-on: ubuntu-latest
+    # global settings for steps
+    defaults:
+      run:
+        working-directory: ./source
+    # steps to perform
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Build program
+      run: python -m py_compile ./main.py
+
+    - name: Syntax checker
+      run: |
+        pip install flake8
+        flake8 . --max-line-length 150
