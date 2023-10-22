@@ -58,12 +58,12 @@ class DataPreprocessorOUS(DataPreprocessor):
         if not os.path.exists(self._clean_incidents_data_path):
             self._fix_csv()
             self._clean_and_save_incidents()
-            progress_bar.update(1)
+        progress_bar.update(1)
 
         if not os.path.exists(self._clean_depots_data_path):
             df_depots = pd.read_csv(self._raw_depots_data_path)
             df_depots.to_csv(self._clean_depots_data_path, index=False)
-            progress_bar.update(1)
+        progress_bar.update(1)
 
     def _fix_csv(self):
         with open(self._raw_incidents_data_path, "r", encoding="windows-1252") as input_file, \
