@@ -1,4 +1,4 @@
-import constants
+import utils
 
 import os
 import pandas as pd
@@ -9,7 +9,7 @@ from tqdm import tqdm
 class DataPreprocessor:
     """Abstract class for preprocessing datasets."""
 
-    def __init__(self, dataset_id: str):
+    def __init__(self, dataset_id: str) -> None:
         """
         Initialize the data preprocessor.
 
@@ -18,21 +18,22 @@ class DataPreprocessor:
         """
         self.dataset_id = dataset_id
         # paths for raw data
-        raw_directory_path = os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "raw", self.dataset_id)
-        self._raw_incidents_data_path = os.path.join(raw_directory_path, "incidents.csv")
-        self._raw_depots_data_path = os.path.join(raw_directory_path, "depots.csv")
+        self._raw_incidents_data_path = utils.get_raw_incidents_path(self.dataset_id)
+        self._raw_depots_data_path = utils.get_raw_depots_path(self.dataset_id)
         # paths for cleaned data
-        clean_directory_path = os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "clean", self.dataset_id)
-        self._clean_incidents_data_path = os.path.join(clean_directory_path, "incidents.csv")
-        self._clean_depots_data_path = os.path.join(clean_directory_path, "depots.csv")
+        self._clean_incidents_data_path = utils.get_clean_incidents_path(self.dataset_id)
+        self._clean_depots_data_path = utils.get_clean_depots_path(self.dataset_id)
         # paths for processed data
-        processed_directory_path = os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "processed", self.dataset_id)
-        self._processed_incidents_data_path = os.path.join(processed_directory_path, "incidents.csv")
-        self._processed_depots_data_path = os.path.join(processed_directory_path, "depots.csv")
+        self._processed_incidents_data_path = utils.get_processed_incidents_path(self.dataset_id)
+        self._processed_depots_data_path = utils.get_processed_depots_path(self.dataset_id)
 
     def execute(self) -> None:
         """Run the preprocessor to clean and process the dataset."""
+        if not os.path.exists(self._raw_incidents_data_path) or not os.path.exists(self._raw_depots_data_path):
+            raise Exception("Missing the raw data files.")
+
         self._clean_data()
+        self._process_data()
 
     def _clean_data(self) -> None:
         """Clean the raw data and cache it."""
@@ -48,9 +49,6 @@ class DataPreprocessor:
 class DataPreprocessorOUS(DataPreprocessor):
     """Class for preprocessing the OUS dataset."""
 
-    def __init__(self, dataset_id: str):
-        super().__init__(dataset_id)
-
     def _clean_data(self) -> None:
         super()._clean_data()
         progress_bar = tqdm(desc="Cleaning dataset", total=2)
@@ -65,7 +63,7 @@ class DataPreprocessorOUS(DataPreprocessor):
             df_depots.to_csv(self._clean_depots_data_path, index=False)
         progress_bar.update(1)
 
-    def _fix_csv(self):
+    def _fix_csv(self) -> None:
         with open(self._raw_incidents_data_path, "r", encoding="windows-1252") as input_file, \
              open(self._clean_incidents_data_path, "w", encoding="utf-8") as output_file:
 
@@ -77,7 +75,7 @@ class DataPreprocessorOUS(DataPreprocessor):
                     line = regex.sub(r"\([^,()]+\K,", "\\,", line)
                 output_file.write(line)
 
-    def _clean_and_save_incidents(self):
+    def _clean_and_save_incidents(self) -> None:
         df_incidents = pd.read_csv(self._clean_incidents_data_path, usecols=range(32), escapechar="\\", low_memory=False)
         # drop unnecessary columns
         columns_to_drop = ["utrykningstid", "responstid"]
@@ -90,21 +88,18 @@ class DataPreprocessorOUS(DataPreprocessor):
         time_columns = ["tidspunkt", "tiltak_opprettet", "varslet", "rykker_ut", "ank_hentested", "avg_hentested", "ank_levsted", "ledig"]
         for col in time_columns:
             df_incidents[col] = df_incidents[col].apply(self._convert_time_format)
-        
+
         df_incidents.to_csv(self._clean_incidents_data_path, index=False)
 
     def _convert_time_format(self, x: str) -> str:
         if x != "":
             return pd.to_datetime(x, format="%d.%m.%Y  %H:%M:%S ").strftime("%d.%m.%YT%H:%M:%S")
-        return ""
 
+    def _invalid_date_format(self, date_string: str) -> bool:
+        """Helper function used for checking date formats are consistent."""
+        # Pattern for the date format "13.02.2015 09:37:14 " and ""
+        pattern = regex.compile(r"^\d{2}\.\d{2}\.\d{4}  \d{2}:\d{2}:\d{2} $|^$")
+        return not pattern.match(date_string)
 
     def _process_data(self) -> None:
         super()._process_data()
-
-
-def invalid_date_format(date_string):
-    """Helper function used for checking date formats are consistent."""
-    # Pattern for the date format "13.02.2015 09:37:14 " and ""
-    pattern = regex.compile(r"^\d{2}\.\d{2}\.\d{4}  \d{2}:\d{2}:\d{2} $|^$")
-    return not pattern.match(date_string)
