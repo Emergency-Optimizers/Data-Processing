@@ -1,6 +1,10 @@
+import datahandler
+
+
 def main():
     """Main program."""
-    print("Hello, world!")
+    data_preprocessor = datahandler.DataPreprocessorOUS(dataset_id="oslo")
+    data_preprocessor.execute()
 
 
 if __name__ == "__main__":
