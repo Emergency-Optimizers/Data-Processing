@@ -6,6 +6,46 @@ import regex
 from tqdm import tqdm
 
 
+class DataLoader:
+    """Class for loading dataset."""
+
+    def __init__(self, dataset_id: str) -> None:
+        """
+        Initialize the data loader.
+
+        Args:
+            dataset_id: Unique identifier for the dataset.
+        """
+        self.dataset_id = dataset_id
+        self.cleaned_incidents_df: pd.DataFrame = None
+        self.cleaned_depots_df: pd.DataFrame = None
+        self.processed_incidents_df: pd.DataFrame = None
+        self.processed_depots_df: pd.DataFrame = None
+        # paths for cleaned data
+        self._clean_incidents_data_path = utils.get_clean_incidents_path(self.dataset_id)
+        self._clean_depots_data_path = utils.get_clean_depots_path(self.dataset_id)
+        # paths for processed data
+        self._processed_incidents_data_path = utils.get_processed_incidents_path(self.dataset_id)
+        self._processed_depots_data_path = utils.get_processed_depots_path(self.dataset_id)
+
+    def execute(self) -> None:
+        """Run the data loader."""
+        if not os.path.exists(self._clean_incidents_data_path) or not os.path.exists(self._clean_depots_data_path):
+            raise Exception("Missing the cleaned data files.")
+        if not os.path.exists(self._processed_incidents_data_path) or not os.path.exists(self._processed_depots_data_path):
+            raise Exception("Missing the processed data files.")
+
+        progress_bar = tqdm(desc="Loading dataset", total=4)
+        self.cleaned_incidents_df = pd.read_csv(self._clean_incidents_data_path, low_memory=False)
+        progress_bar.update(1)
+        self.cleaned_depots_df = pd.read_csv(self._clean_depots_data_path, low_memory=False)
+        progress_bar.update(1)
+        self.processed_incidents_df = pd.read_csv(self._processed_incidents_data_path, low_memory=False)
+        progress_bar.update(1)
+        self.processed_depots_df = pd.read_csv(self._processed_depots_data_path, low_memory=False)
+        progress_bar.update(1)
+
+
 class DataPreprocessor:
     """Abstract class for preprocessing datasets."""
 
