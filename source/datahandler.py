@@ -153,7 +153,7 @@ class DataPreprocessorOUS(DataPreprocessor):
 
     def _convert_time_format(self, x: str) -> str:
         if x != "":
-            return pd.to_datetime(x, format="%d.%m.%Y  %H:%M:%S ").strftime("%d.%m.%YT%H:%M:%S")
+            return pd.to_datetime(x, format="%d.%m.%Y  %H:%M:%S ").strftime("%Y.%m.%dT%H:%M:%S")
 
     def _invalid_date_format(self, date_string: str) -> bool:
         """Helper function used for checking date formats are consistent."""
@@ -174,6 +174,8 @@ class DataPreprocessorOUS(DataPreprocessor):
                 "synthetic": "bool",
                 "triage_impression_during_call": "str",
                 "time_call_received": "str",
+                "time_call_processed": "str",
+                "time_ambulance_notified": "str",
                 "time_dispatch": "str",
                 "time_arrival_scene": "str",
                 "time_departure_scene": "str",
@@ -188,6 +190,8 @@ class DataPreprocessorOUS(DataPreprocessor):
                 "synthetic": [],
                 "triage_impression_during_call": [],
                 "time_call_received": [],
+                "time_call_processed": [],
+                "time_ambulance_notified": [],
                 "time_dispatch": [],
                 "time_arrival_scene": [],
                 "time_departure_scene": [],
@@ -201,8 +205,10 @@ class DataPreprocessorOUS(DataPreprocessor):
                 row_data["id"].append(row["id"])
                 row_data["synthetic"].append(False)
                 row_data["triage_impression_during_call"].append(row["hastegrad"])
-                row_data["time_call_received"].append(row["tidspunkt"] if not pd.isna(row["tidspunkt"]) else row["tiltak_opprettet"])
-                row_data["time_dispatch"].append(row["rykker_ut"] if not pd.isna(row["rykker_ut"]) else row["varslet"])
+                row_data["time_call_received"].append(row["tidspunkt"])
+                row_data["time_call_processed"].append(row["tiltak_opprettet"])
+                row_data["time_ambulance_notified"].append(row["varslet"])
+                row_data["time_dispatch"].append(row["rykker_ut"])
                 row_data["time_arrival_scene"].append(row["ank_hentested"])
                 row_data["time_departure_scene"].append(row["avg_hentested"])
                 row_data["time_arrival_hospital"].append(row["ank_levsted"])
