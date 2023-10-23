@@ -26,3 +26,11 @@ def get_processed_incidents_path(dataset_id: str) -> str:
 
 def get_processed_depots_path(dataset_id: str) -> str:
     return os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "processed", dataset_id, "depots.csv")
+
+
+def get_enhanced_incidents_path(dataset_id: str) -> str:
+    return os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "enhanced", dataset_id, "incidents.csv")
+
+
+def get_enhanced_depots_path(dataset_id: str) -> str:
+    return os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "enhanced", dataset_id, "depots.csv")

@@ -21,12 +21,17 @@ class DataLoader:
         self.cleaned_depots_df: pd.DataFrame = None
         self.processed_incidents_df: pd.DataFrame = None
         self.processed_depots_df: pd.DataFrame = None
+        self.enhanced_incidents_df: pd.DataFrame = None
+        self.enhanced_depots_df: pd.DataFrame = None
         # paths for cleaned data
         self._clean_incidents_data_path = utils.get_clean_incidents_path(self.dataset_id)
         self._clean_depots_data_path = utils.get_clean_depots_path(self.dataset_id)
         # paths for processed data
         self._processed_incidents_data_path = utils.get_processed_incidents_path(self.dataset_id)
         self._processed_depots_data_path = utils.get_processed_depots_path(self.dataset_id)
+        # paths for enhanced data
+        self._enhanced_incidents_data_path = utils.get_enhanced_incidents_path(self.dataset_id)
+        self._enhanced_depots_data_path = utils.get_enhanced_depots_path(self.dataset_id)
 
     def execute(self) -> None:
         """Run the data loader."""
@@ -34,15 +39,24 @@ class DataLoader:
             raise Exception("Missing the cleaned data files.")
         if not os.path.exists(self._processed_incidents_data_path) or not os.path.exists(self._processed_depots_data_path):
             raise Exception("Missing the processed data files.")
+        if not os.path.exists(self._enhanced_incidents_data_path) or not os.path.exists(self._enhanced_depots_data_path):
+            raise Exception("Missing the enhanced data files.")
 
-        progress_bar = tqdm(desc="Loading dataset", total=4)
+        progress_bar = tqdm(desc="Loading dataset", total=6)
+
         self.cleaned_incidents_df = pd.read_csv(self._clean_incidents_data_path, low_memory=False)
         progress_bar.update(1)
         self.cleaned_depots_df = pd.read_csv(self._clean_depots_data_path, low_memory=False)
         progress_bar.update(1)
+
         self.processed_incidents_df = pd.read_csv(self._processed_incidents_data_path, low_memory=False)
         progress_bar.update(1)
         self.processed_depots_df = pd.read_csv(self._processed_depots_data_path, low_memory=False)
+        progress_bar.update(1)
+
+        self.enhanced_incidents_df = pd.read_csv(self._enhanced_incidents_data_path, low_memory=False)
+        progress_bar.update(1)
+        self.enhanced_depots_df = pd.read_csv(self._enhanced_depots_data_path, low_memory=False)
         progress_bar.update(1)
 
 
@@ -66,6 +80,9 @@ class DataPreprocessor:
         # paths for processed data
         self._processed_incidents_data_path = utils.get_processed_incidents_path(self.dataset_id)
         self._processed_depots_data_path = utils.get_processed_depots_path(self.dataset_id)
+        # paths for enhanced data
+        self._enhanced_incidents_data_path = utils.get_enhanced_incidents_path(self.dataset_id)
+        self._enhanced_depots_data_path = utils.get_enhanced_depots_path(self.dataset_id)
 
     def execute(self) -> None:
         """Run the preprocessor to clean and process the dataset."""
@@ -74,6 +91,7 @@ class DataPreprocessor:
 
         self._clean_data()
         self._process_data()
+        self._enhance_data()
 
     def _clean_data(self) -> None:
         """Clean the raw data and cache it."""
@@ -82,6 +100,10 @@ class DataPreprocessor:
     def _process_data(self) -> None:
         """Process the clean data and cache it."""
         os.makedirs(os.path.dirname(self._processed_incidents_data_path), exist_ok=True)
+
+    def _enhance_data(self) -> None:
+        """Process the clean data and cache it."""
+        os.makedirs(os.path.dirname(self._enhanced_incidents_data_path), exist_ok=True)
 
 
 class DataPreprocessorOUS(DataPreprocessor):
@@ -222,4 +244,28 @@ class DataPreprocessorOUS(DataPreprocessor):
             for column, dtype in column_data_types.items():
                 df_depots[column] = df_depots[column].astype(dtype)
             df_depots.to_csv(self._processed_depots_data_path, index=False)
+        progress_bar.update(1)
+
+    def _enhance_data(self) -> None:
+        super()._enhance_data()
+        progress_bar = tqdm(desc="Enhancing dataset", total=2)
+
+        if not os.path.exists(self._enhanced_incidents_data_path):
+            # load processed dataset
+            df_incidents = pd.read_csv(self._processed_incidents_data_path, low_memory=False)
+            # drop rows with NaN values
+            df_incidents.dropna(subset=["time_available", "time_dispatch", "triage_impression_during_call"], inplace=True)
+
+            condition = df_incidents["time_arrival_scene"].isna() & ~df_incidents["time_arrival_hospital"].isna()
+            df_incidents = df_incidents.drop(df_incidents[condition].index)
+
+            condition = df_incidents["time_departure_scene"].isna() & ~df_incidents["time_arrival_hospital"].isna()
+            df_incidents = df_incidents.drop(df_incidents[condition].index)
+            # save to disk
+            df_incidents.to_csv(self._enhanced_incidents_data_path, index=False)
+        progress_bar.update(1)
+
+        if not os.path.exists(self._enhanced_depots_data_path):
+            df_depots = pd.read_csv(self._processed_depots_data_path)
+            df_depots.to_csv(self._enhanced_depots_data_path, index=False)
         progress_bar.update(1)
