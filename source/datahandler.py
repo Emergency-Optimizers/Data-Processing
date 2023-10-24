@@ -182,7 +182,9 @@ class DataPreprocessorOUS(DataPreprocessor):
                 "time_arrival_hospital": "str",
                 "time_available": "str",
                 "longitude": "float32",
-                "latitude": "float32"
+                "latitude": "float32",
+                "row": "int32",
+                "column": "int32"
             }
             # create rows
             row_data = {
@@ -198,7 +200,9 @@ class DataPreprocessorOUS(DataPreprocessor):
                 "time_arrival_hospital": [],
                 "time_available": [],
                 "longitude": [],
-                "latitude": []
+                "latitude": [],
+                "row": [],
+                "column": []
             }
             # iterate over cleaned dataset
             for _, row in df_incidents_clean.iterrows():
@@ -215,6 +219,8 @@ class DataPreprocessorOUS(DataPreprocessor):
                 row_data["time_available"].append(row["ledig"])
                 row_data["longitude"].append(row["xcoor"])
                 row_data["latitude"].append(row["ycoor"])
+                row_data["row"].append(row["row"])
+                row_data["column"].append(row["col"])
             # convert to dataframe and save to disk
             df_incidents = pd.DataFrame(row_data)
             for column, dtype in column_data_types.items():
