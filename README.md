@@ -10,13 +10,13 @@ This is a repository for pre-processing and analyzing ambulance datasets, aiming
 ### Virtual Environment Setup
 #### Windows
 0. Get the package `pip install virtualenv`
-1. Create a new empty instance of python 3.10 environment `py -3.11 -m venv ./.venv`
-2. Activate the environment `source .venv/Scripts/activate`
+1. Create a new empty instance of python 3.11 environment `py -3.11 -m venv ./.venv`
+2. Activate the environment `.venv/Scripts/activate`
 3. Install the packages required by this project `pip install -r source/requirements.txt`
 
 #### Linux
 0. Get the package `pip install virtualenv`
-1. Create a new empty instance of python 3.10 environment `python -m venv ./.venv`
+1. Create a new empty instance of python 3.11 environment `python -m venv ./.venv`
 2. Activate the environment `source .venv/bin/activate`
 3. Install the packages required by this project `pip install -r source/requirements.txt`
 
