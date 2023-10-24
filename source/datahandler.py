@@ -225,7 +225,10 @@ class DataPreprocessorOUS(DataPreprocessor):
                 row_data["time_departure_scene"].append(row["avg_hentested"])
                 row_data["time_arrival_hospital"].append(row["ank_levsted"])
                 row_data["time_available"].append(row["ledig"])
-                row_data["response_time_sec"] = (row_data["time_arrival_scene"] - row_data["time_call_received"]).dt.total_seconds()
+                # get response time
+                row["tidspunkt"] = pd.to_datetime(row["tidspunkt"], format="%Y.%m.%dT%H:%M:%S")
+                row["ank_hentested"] = pd.to_datetime(row["ank_hentested"], format="%Y.%m.%dT%H:%M:%S")
+                row_data["response_time_sec"].append((row["ank_hentested"] - row["tidspunkt"]).total_seconds())
                 # get geo data
                 easting, northing = row["xcoor"], row["ycoor"]
                 lon, lat = utils.utm_to_geographic(easting, northing)
