@@ -1,7 +1,6 @@
 import constants
 
 import os
-import pandas as pd
 import pyproj
 
 
@@ -37,25 +36,41 @@ def get_enhanced_depots_path(dataset_id: str) -> str:
     return os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "enhanced", dataset_id, "depots.csv")
 
 
-def latlon_to_utm(lat, lon, false_easting=0, zone=33):
+def geographic_to_utm(longitude, latitude, zone=33, offset=0):
     """
-    zone: int, optional
-        UTM zone for the conversion. Default is 33 for Norway, use 10 for Marin County, US.
+    Convert geographic (longitude and latitude) coordinates to UTM coordinates.
+
+    Parameters:
+    - longitude (float): Longitude of the geographic coordinate.
+    - latitude (float): Latitude of the geographic coordinate.
+    - zone (int, optional): UTM zone number for the conversion. Default is 33, which covers parts of Norway.
+    - offset (int, optional): False easting value. This shifts the UTM x-coordinate by the specified value.
+    
+    Returns:
+    - tuple: UTM x-coordinate and UTM y-coordinate.
     """
-    wgs84 = pyproj.Proj(proj="latlong", datum="WGS84")
-    utm33 = pyproj.Proj(proj="utm", zone=zone, datum="WGS84")
-    utm_x, utm_y = pyproj.transform(wgs84, utm33, lon, lat)
-    utm_x += false_easting  # Add false easting if specified
-    return utm_x, utm_y
+    # Create a transformer to convert from geographic to UTM
+    transformer = pyproj.Transformer.from_crs("EPSG:4326", f"EPSG:326{zone}")
+    utm_easting, utm_northing = transformer.transform(latitude, longitude)
+    utm_easting += offset
+    return utm_easting, utm_northing
 
 
-def utm_to_latlon(utm_x, utm_y, false_easting=0, zone=33):
+def utm_to_geographic(easting, northing, zone=33, offset=0):
     """
-    zone: int, optional
-        UTM zone for the conversion. Default is 33 for Norway, use 10 for Marin County, US.
+    Convert UTM coordinates to geographic (longitude and latitude) coordinates.
+
+    Parameters:
+    - easting (float): UTM x-coordinate.
+    - northing (float): UTM y-coordinate.
+    - zone (int, optional): UTM zone number for the conversion. Default is 33, which covers parts of Norway.
+    - offset (int, optional): False easting value. This subtracts the specified value from the UTM x-coordinate before conversion.
+    
+    Returns:
+    - tuple: Longitude and latitude of the geographic coordinate.
     """
-    wgs84 = pyproj.Proj(proj="latlong", datum="WGS84")
-    utm33 = pyproj.Proj(proj="utm", zone=zone, datum="WGS84")
-    utm_x -= false_easting  # Remove false easting if specified
-    lon, lat = pyproj.transform(utm33, wgs84, utm_x, utm_y)
-    return lat, lon
+    easting -= offset
+    # Create a transformer to convert from UTM to geographic
+    transformer = pyproj.Transformer.from_crs(f"EPSG:326{zone}", "EPSG:4326")
+    longitude, latitude = transformer.transform(easting, northing)
+    return longitude, latitude
