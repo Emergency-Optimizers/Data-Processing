@@ -2,6 +2,13 @@ import constants
 
 import os
 import pyproj
+import math
+
+
+# Create a transformer to convert from geographic to UTM
+transformer_geographic_to_utm = pyproj.Transformer.from_crs("EPSG:4326", f"EPSG:326{33}")
+# Create a transformer to convert from UTM to geographic
+transformer_utm_to_geographic = pyproj.Transformer.from_crs(f"EPSG:326{33}", "EPSG:4326")
 
 
 def get_raw_incidents_path(dataset_id: str) -> str:
@@ -49,9 +56,7 @@ def geographic_to_utm(longitude, latitude, zone=33, offset=0):
     Returns:
     - tuple: UTM x-coordinate and UTM y-coordinate.
     """
-    # Create a transformer to convert from geographic to UTM
-    transformer = pyproj.Transformer.from_crs("EPSG:4326", f"EPSG:326{zone}")
-    utm_easting, utm_northing = transformer.transform(latitude, longitude)
+    utm_easting, utm_northing = transformer_geographic_to_utm.transform(latitude, longitude)
     utm_easting += offset
     return utm_easting, utm_northing
 
@@ -70,7 +75,108 @@ def utm_to_geographic(easting, northing, zone=33, offset=0):
     - tuple: Longitude and latitude of the geographic coordinate.
     """
     easting -= offset
-    # Create a transformer to convert from UTM to geographic
-    transformer = pyproj.Transformer.from_crs(f"EPSG:326{zone}", "EPSG:4326")
-    longitude, latitude = transformer.transform(easting, northing)
+    longitude, latitude = transformer_utm_to_geographic.transform(easting, northing)
     return longitude, latitude
+
+
+def utm_to_id(easting, northing):
+    """Convert easting and northing to an ID based on the given formula."""
+    ID = 2 * (10**13) + easting * (10**7) + northing
+    return ID
+
+
+def id_to_row_col(grid_id, cell_size=1000):
+    """
+    Convert grid ID to row and column values.
+    
+    Parameters:
+    - grid_id: int
+        The ID of the grid cell.
+    - cell_size: int
+        The height (and potentially width if the grid is square) of each cell in meters.
+    
+    Returns:
+    - row: int
+        Row index of the grid cell.
+    - col: int
+        Column index of the grid cell.
+    """
+    # extracting Y_c (northing) from the ID
+    Y_c = grid_id % (10**7)
+    # extracting X_c (easting) from the ID
+    X_c = (grid_id - 2 * 10**13 - Y_c) // 10**7
+    # convert Y_c (northing) to row index
+    row = Y_c // cell_size
+    # convert X_c (easting) to column index
+    col = X_c // cell_size
+
+    return row, col
+
+
+def row_col_to_id(row, col, cell_size=1000):
+    """
+    Convert row and col values to grid ID.
+
+    Parameters:
+    - row: int
+        Row index of the grid cell.
+    - col: int
+        Column index of the grid cell.
+    - cell_size: int
+        The height (and width, since cells are quadratic) of each cell in meters.
+
+    Returns:
+    - grid_id: int
+        The ID of the grid cell.
+    """
+    
+    # Convert row and col to northing and easting
+    Y_c = row * cell_size
+    X_c = col * cell_size
+
+    # Compute grid ID using the formula
+    grid_id = 2 * 10**13 + X_c * 10**7 + Y_c
+
+    return grid_id
+
+
+def id_to_easting_northing(grid_id):
+    """
+    Convert grid ID to easting and northing values.
+    
+    Parameters:
+    - grid_id: int
+        The ID of the grid cell.
+    
+    Returns:
+    - easting: int
+        Easting (X_c) value of the grid cell's southwestern corner.
+    - northing: int
+        Northing (Y_c) value of the grid cell's southwestern corner.
+    """
+
+    # Extracting Y_c (northing) from the ID
+    northing = grid_id % (10**7)
+    
+    # Extracting X_c (easting) from the ID
+    easting = (grid_id - 2 * 10**13 - northing) // 10**7
+
+    return easting, northing
+
+
+def snap_utm_to_ssb_grid(easting, northing, cell_size=1000):
+    return (
+        (math.floor((easting + 2000000) / cell_size) * cell_size - 2000000),
+        (math.floor(northing / cell_size) * cell_size)
+    )
+
+
+def centroid_to_ssb_grid_points(easting, northing):
+    x_c, y_c = snap_utm_to_ssb_grid(easting, northing)
+    ssb_grid_points = [(x_c, y_c)]
+
+    for x_offset, y_offset in [(1000, 0), (1000, 1000), (0, 1000)]:
+        ssb_grid_points.append((x_c + x_offset, y_c + y_offset))
+
+    ssb_grid_points.append((x_c, y_c))
+    return ssb_grid_points

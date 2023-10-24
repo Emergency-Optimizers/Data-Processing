@@ -181,10 +181,14 @@ class DataPreprocessorOUS(DataPreprocessor):
                 "time_departure_scene": "str",
                 "time_arrival_hospital": "str",
                 "time_available": "str",
+                "response_time_sec": "float32",
                 "longitude": "float32",
                 "latitude": "float32",
-                "row": "int32",
-                "column": "int32"
+                "easting": "int32",
+                "northing": "int32",
+                "grid_id": "int32",
+                "grid_row": "int32",
+                "grid_col": "int32"
             }
             # create rows
             row_data = {
@@ -199,10 +203,14 @@ class DataPreprocessorOUS(DataPreprocessor):
                 "time_departure_scene": [],
                 "time_arrival_hospital": [],
                 "time_available": [],
+                "response_time_sec": [],
                 "longitude": [],
                 "latitude": [],
-                "row": [],
-                "column": []
+                "easting": [],
+                "northing": [],
+                "grid_id": [],
+                "grid_row": [],
+                "grid_col": []
             }
             # iterate over cleaned dataset
             for _, row in df_incidents_clean.iterrows():
@@ -217,10 +225,20 @@ class DataPreprocessorOUS(DataPreprocessor):
                 row_data["time_departure_scene"].append(row["avg_hentested"])
                 row_data["time_arrival_hospital"].append(row["ank_levsted"])
                 row_data["time_available"].append(row["ledig"])
-                row_data["longitude"].append(row["xcoor"])
-                row_data["latitude"].append(row["ycoor"])
-                row_data["row"].append(row["row"])
-                row_data["column"].append(row["col"])
+                row_data["response_time_sec"] = (row_data["time_arrival_scene"] - row_data["time_call_received"]).dt.total_seconds()
+                # get geo data
+                easting, northing = row["xcoor"], row["ycoor"]
+                lon, lat = utils.utm_to_geographic(easting, northing)
+                grid_id = utils.utm_to_id(easting, northing)
+                grid_row, grid_col = utils.id_to_row_col(grid_id)
+
+                row_data["longitude"].append(lon)
+                row_data["latitude"].append(lat)
+                row_data["easting"].append(easting)
+                row_data["northing"].append(northing)
+                row_data["grid_id"].append(grid_id)
+                row_data["grid_row"].append(grid_row)
+                row_data["grid_col"].append(grid_col)
             # convert to dataframe and save to disk
             df_incidents = pd.DataFrame(row_data)
             for column, dtype in column_data_types.items():
