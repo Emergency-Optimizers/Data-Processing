@@ -4,4 +4,4 @@ tqdm==4.66.1
 matplotlib==3.8.0
 pyproj==3.6.1
 seaborn==0.13.0
-cartopy==0.22.0
+folium==0.14.0

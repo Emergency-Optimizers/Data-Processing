@@ -140,6 +140,7 @@ class DataPreprocessorOUS(DataPreprocessor):
         # drop unnecessary columns
         columns_to_drop = ["utrykningstid", "responstid"]
         df_incidents.drop(columns_to_drop, axis=1, inplace=True)
+        df_incidents = df_incidents[df_incidents["hastegrad"] != "V"]
         # fill NaN values
         columns_to_fill = ["hastegrad", "varslet", "rykker_ut", "ank_hentested", "avg_hentested", "ank_levsted", "ledig"]
         for col in columns_to_fill:
