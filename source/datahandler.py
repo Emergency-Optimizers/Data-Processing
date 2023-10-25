@@ -295,6 +295,9 @@ class DataPreprocessorOUS(DataPreprocessor):
 
             mask = df_incidents["time_departure_scene"].isna() & df_incidents["time_arrival_hospital"].notna()
             df_incidents = df_incidents[~mask]
+            
+            df_incidents = self._fix_timeframes(df_incidents)
+                  
             # save to disk
             df_incidents.to_csv(self._enhanced_incidents_data_path, index=False)
         progress_bar.update(1)
@@ -303,3 +306,58 @@ class DataPreprocessorOUS(DataPreprocessor):
             df_depots = pd.read_csv(self._processed_depots_data_path)
             df_depots.to_csv(self._enhanced_depots_data_path, index=False)
         progress_bar.update(1)
+
+    def _fix_timeframes(self, df_incidents: pd.DataFrame) -> pd.DataFrame:
+        # convert time columns to datetime format
+        time_columns = [
+            'time_call_received', 'time_call_processed', 'time_ambulance_notified',
+            'time_dispatch', 'time_arrival_scene', 'time_departure_scene',
+            'time_arrival_hospital', 'time_available'
+        ]
+        df_incidents[time_columns] = df_incidents[time_columns].apply(pd.to_datetime, errors='coerce', format="%Y.%m.%dT%H:%M:%S")
+        
+        # Data cleaning for time columns
+        # You can also replace 'median_time_diff' with the actual median value you've calculated
+        condition_dict = {
+            ('time_call_received', 'time_call_processed'): 'replace',
+            ('time_call_processed', 'time_ambulance_notified'): 'replace',
+            ('time_ambulance_notified', 'time_dispatch'): 'delete',
+            ('time_dispatch', 'time_arrival_scene'): 'delete',
+            ('time_arrival_scene', 'time_departure_scene'): 'delete',
+            ('time_departure_scene', 'time_arrival_hospital'): 'delete',
+            ('time_arrival_hospital', 'time_available'): 'delete'
+        }
+        
+        median_values_dict = {
+            ('time_call_received', 'time_call_processed'): 103.0,
+            ('time_call_processed', 'time_ambulance_notified'): 83.0,
+            ('time_ambulance_notified', 'time_dispatch'): 71.0,
+            ('time_dispatch', 'time_arrival_scene'): 483.0,
+            ('time_arrival_scene', 'time_departure_scene') : 1070.0,
+            ('time_departure_scene', 'time_arrival_hospital') : 862.0,
+            ('time_arrival_hospital', 'time_available') : 864.0,
+        }
+        
+        for (col1, col2), action in condition_dict.items():
+            if action == 'replace':
+                median_time_diff = median_values_dict.get((col1, col2), 0)
+                # Replace indices where the time difference is <= 1 second
+                replace_indices = df_incidents[(df_incidents[col1] > df_incidents[col2]) & 
+                                            ((df_incidents[col1] - df_incidents[col2]).dt.total_seconds() <= 1)].index
+                df_incidents.loc[replace_indices, col2] = df_incidents.loc[replace_indices, col1] + pd.Timedelta(seconds=median_time_diff)
+                df_incidents.loc[replace_indices, 'synthetic'] = True
+                # Delete indices where the time difference is > 1 second
+                delete_indices = df_incidents[(df_incidents[col1] > df_incidents[col2]) & 
+                                            ((df_incidents[col1] - df_incidents[col2]).dt.total_seconds() > 1)].index
+                df_incidents.drop(delete_indices, inplace=True)
+            elif action == 'delete':
+                delete_indices = df_incidents[df_incidents[col1] > df_incidents[col2]].index
+                df_incidents.drop(delete_indices, inplace=True)
+        # recalculate response time
+        df_incidents['response_time_sec'] = df_incidents.apply(
+            lambda row: (row['time_arrival_scene'] - row['time_call_received']).total_seconds(), axis=1
+        )
+        for col in time_columns:
+            df_incidents[col] = df_incidents[col].dt.strftime('%Y.%m.%dT%H:%M:%S')
+        
+        return df_incidents
