@@ -1,5 +1,7 @@
 import os
 import seaborn as sns
+import matplotlib.pyplot as plt
+
 
 PROJECT_DIRECTORY_PATH = os.path.dirname(os.path.dirname(__file__))
 
@@ -33,3 +35,4 @@ COLOR_MAPPING_GPT = {
     'V1': sns.color_palette("husl", 8)[4],
     'V2': sns.color_palette("husl", 8)[7]
 }
+COLOR_MAPPING_LIGHT = [plt.cm.colors.to_rgba(color, alpha=0.65) for color in COLOR_MAPPING_DEEP.values()]
