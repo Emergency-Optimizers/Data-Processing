@@ -3,6 +3,7 @@ import constants
 import os
 import pyproj
 import math
+import pandas as pd
 
 
 # Create a transformer to convert from geographic to UTM
@@ -180,3 +181,16 @@ def centroid_to_ssb_grid_points(easting, northing):
 
     ssb_grid_points.append((x_c, y_c))
     return ssb_grid_points
+
+
+def copy_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Creates a deep copy of the given dataframe.
+
+    Args:
+    - df (pd.DataFrame): The original dataframe to be copied.
+
+    Returns:
+    - pd.DataFrame: A deep copy of the original dataframe.
+    """
+    return df.copy(deep=True)
