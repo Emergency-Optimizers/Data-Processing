@@ -288,13 +288,13 @@ class DataPreprocessorOUS(DataPreprocessor):
             # load processed dataset
             df_incidents = pd.read_csv(self._processed_incidents_data_path, low_memory=False)
             # drop rows with NaN values
-            df_incidents.dropna(subset=["time_available", "time_dispatch", "triage_impression_during_call"], inplace=True)
+            df_incidents.dropna(subset=["time_available", "time_dispatch", "triage_impression_during_call", "time_ambulance_notified"], inplace=True)
+            
+            mask = df_incidents["time_arrival_scene"].isna() & df_incidents["time_arrival_hospital"].notna()
+            df_incidents = df_incidents[~mask]
 
-            condition = df_incidents["time_arrival_scene"].isna() & ~df_incidents["time_arrival_hospital"].isna()
-            df_incidents = df_incidents.drop(df_incidents[condition].index)
-
-            condition = df_incidents["time_departure_scene"].isna() & ~df_incidents["time_arrival_hospital"].isna()
-            df_incidents = df_incidents.drop(df_incidents[condition].index)
+            mask = df_incidents["time_departure_scene"].isna() & df_incidents["time_arrival_hospital"].notna()
+            df_incidents = df_incidents[~mask]
             # save to disk
             df_incidents.to_csv(self._enhanced_incidents_data_path, index=False)
         progress_bar.update(1)
