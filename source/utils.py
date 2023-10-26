@@ -194,3 +194,18 @@ def copy_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     - pd.DataFrame: A deep copy of the original dataframe.
     """
     return df.copy(deep=True)
+
+
+def get_cell_corners(easting: int, northing: int, cell_size=1000) -> list[tuple[float, float], tuple[float, float], tuple[float, float], tuple[float, float]]:
+    south_west_easting, south_west_northing = snap_utm_to_ssb_grid(easting, northing, cell_size)
+    south_east_easting, south_east_northing = south_west_easting + cell_size, south_west_northing
+    north_east_easting, north_east_northing = south_west_easting + cell_size, south_west_northing + cell_size
+    north_west_easting, north_west_northing = south_west_easting, south_west_northing + cell_size
+
+    corners = [
+        utm_to_geographic(south_west_easting, south_west_northing),
+        utm_to_geographic(south_east_easting, south_east_northing),
+        utm_to_geographic(north_east_easting, north_east_northing),
+        utm_to_geographic(north_west_easting, north_west_northing),
+    ]
+    return corners
