@@ -1,3 +1,4 @@
+import constants
 import utils
 
 import os
@@ -140,6 +141,7 @@ class DataPreprocessorOUS(DataPreprocessor):
         # drop unnecessary columns
         columns_to_drop = ["utrykningstid", "responstid"]
         df_incidents.drop(columns_to_drop, axis=1, inplace=True)
+        # drop the few rows with errors in triage code
         df_incidents = df_incidents[df_incidents["hastegrad"] != "V"]
         # fill NaN values
         columns_to_fill = ["hastegrad", "varslet", "rykker_ut", "ank_hentested", "avg_hentested", "ank_levsted", "ledig"]
@@ -243,10 +245,13 @@ class DataPreprocessorOUS(DataPreprocessor):
                 row_data["grid_id"].append(grid_id)
                 row_data["grid_row"].append(grid_row)
                 row_data["grid_col"].append(grid_col)
-            # convert to dataframe and save to disk
+            # convert to dataframe
             df_incidents = pd.DataFrame(row_data)
             for column, dtype in column_data_types.items():
                 df_incidents[column] = df_incidents[column].astype(dtype)
+            # convert the triage codes
+            df_incidents = self._rename_triage_categories(df_incidents)
+            # save to disk
             df_incidents.to_csv(self._processed_incidents_data_path, index=False)
         progress_bar.update(1)
 
@@ -279,6 +284,21 @@ class DataPreprocessorOUS(DataPreprocessor):
                 df_depots[column] = df_depots[column].astype(dtype)
             df_depots.to_csv(self._processed_depots_data_path, index=False)
         progress_bar.update(1)
+
+    def _rename_triage_categories(self, df: pd.DataFrame, column_name="triage_impression_during_call") -> pd.DataFrame:
+        """
+        Rename the triage categories in the specified column of the dataframe.
+
+        Parameters:
+        - df: pandas.DataFrame
+        - column_name: str, the name of the column to be modified.
+
+        Returns:
+        - df: pandas.DataFrame with updated triage category names.
+        """
+        df[column_name] = df[column_name].map(constants.TRIAGE_MAPPING)
+
+        return df
 
     def _enhance_data(self) -> None:
         super()._enhance_data()
