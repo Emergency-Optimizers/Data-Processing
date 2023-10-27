@@ -215,7 +215,7 @@ class DataPreprocessorOUS(DataPreprocessor):
                 "grid_row": [],
                 "grid_col": []
             }
-            # iterate over cleaned dataset
+            # rename columns
             for _, row in df_incidents_clean.iterrows():
                 row_data["id"].append(row["id"])
                 row_data["synthetic"].append(False)
