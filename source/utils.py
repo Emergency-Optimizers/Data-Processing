@@ -4,6 +4,8 @@ import os
 import pyproj
 import math
 import pandas as pd
+import geopandas as gpd
+import matplotlib.pyplot as plt
 
 
 # Create a transformer to convert from geographic to UTM
@@ -209,3 +211,29 @@ def get_cell_corners(easting: int, northing: int, cell_size=1000) -> list[tuple[
         utm_to_geographic(north_west_easting, north_west_northing),
     ]
     return corners
+
+
+def get_oslo_akershus_grid() -> pd.DataFrame:
+    df_oslo = pd.read_csv(os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "ssb_2019_oslo_epsg32633.csv"), encoding="utf-8")
+    df_akershus = pd.read_csv(os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "ssb_2019_akershus_epsg32633.csv"), encoding="utf-8")
+    df = pd.concat([df_oslo, df_akershus])
+
+    return df
+
+
+def plot_multiple_geojson_polygons_in_one_plot_corrected(file_paths, labels, colors):
+    plt.figure(figsize=(15, 15))
+    
+    for idx, file_path in enumerate(file_paths):
+        # Load the GeoJSON file into a GeoDataFrame
+        gdf = gpd.read_file(file_path)
+        
+        # Plot the boundary of the GeoDataFrame
+        gdf.boundary.plot(ax=plt.gca(), label=labels[idx], edgecolor=colors)
+        
+    plt.xlabel('Longitude')
+    plt.ylabel('Latitude')
+    plt.title('Polygons of Different Areas')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
