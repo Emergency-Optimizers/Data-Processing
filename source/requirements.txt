@@ -7,3 +7,4 @@ seaborn==0.13.0
 folium==0.14.0
 geopandas==0.14.0
 scipy==1.11.3
+numpy==1.26.1
