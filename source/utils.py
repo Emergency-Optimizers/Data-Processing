@@ -213,12 +213,13 @@ def get_cell_corners(easting: int, northing: int, cell_size=1000) -> list[tuple[
     return corners
 
 
-def get_oslo_akershus_grid() -> pd.DataFrame:
-    df_oslo = pd.read_csv(os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "ssb_2019_oslo_epsg32633.csv"), encoding="utf-8")
-    df_akershus = pd.read_csv(os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "ssb_2019_akershus_epsg32633.csv"), encoding="utf-8")
-    df = pd.concat([df_oslo, df_akershus])
+def get_oslo_akershus_grid() -> gpd.GeoDataFrame:
+    gdf_oslo = gpd.read_file(os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "ssb_2019_oslo_polygon_epsg4326.geojson"))
+    gdf_akershus = gpd.read_file(os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "ssb_2019_akershus_polygon_epsg4326.geojson"))
 
-    return df
+    gdf_combined = pd.concat([gdf_oslo, gdf_akershus], ignore_index=True)
+
+    return gdf_combined
 
 
 def plot_multiple_geojson_polygons_in_one_plot_corrected(file_paths, labels, colors):
