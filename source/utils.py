@@ -229,7 +229,7 @@ def plot_multiple_geojson_polygons_in_one_plot_corrected(file_paths, labels, col
         gdf = gpd.read_file(file_path)
         
         # Plot the boundary of the GeoDataFrame
-        gdf.boundary.plot(ax=plt.gca(), label=labels[idx], edgecolor=colors)
+        gdf.boundary.plot(ax=plt.gca(), label=labels[idx], edgecolor=colors[idx])
         
     plt.xlabel('Longitude')
     plt.ylabel('Latitude')
