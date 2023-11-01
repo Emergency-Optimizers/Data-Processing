@@ -7,6 +7,8 @@ import numpy as np
 import regex
 from tqdm import tqdm
 from scipy.stats import norm
+import geopandas as gpd
+import shapely.geometry
 
 
 class DataLoader:
@@ -193,7 +195,9 @@ class DataPreprocessorOUS(DataPreprocessor):
                 "northing": "int32",
                 "grid_id": "int32",
                 "grid_row": "int32",
-                "grid_col": "int32"
+                "grid_col": "int32",
+                "region": "str",
+                "urban_settlement": "bool"
             }
             # create rows
             row_data = {
@@ -215,8 +219,16 @@ class DataPreprocessorOUS(DataPreprocessor):
                 "northing": [],
                 "grid_id": [],
                 "grid_row": [],
-                "grid_col": []
+                "grid_col": [],
+                "region": [],
+                "urban_settlement": []
             }
+
+            gdf_oslo_bounds = utils.get_bounds(file_paths=[os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "ssb_2019_oslo_polygon_epsg4326.geojson")])
+            gdf_akershus_bounds = utils.get_bounds(file_paths=[os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "ssb_2019_akershus_polygon_epsg4326.geojson")])
+            gdf_urban_settlement_bounds = utils.get_bounds(file_paths=[os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "ssb_2021_urban_settlements_polygon_epsg4326.geojson")])
+            
+            grid_id_mapping = {}
             # rename columns
             for _, row in df_incidents_clean.iterrows():
                 row_data["id"].append(row["id"])
@@ -247,6 +259,54 @@ class DataPreprocessorOUS(DataPreprocessor):
                 row_data["grid_id"].append(grid_id)
                 row_data["grid_row"].append(grid_row)
                 row_data["grid_col"].append(grid_col)
+
+                row_data["region"].append(np.nan)
+                row_data["urban_settlement"].append(False)
+                for cell_corner in utils.get_cell_corners(easting, northing):
+                    grid_id_mapping[cell_corner] = (np.nan, False)
+            # set region and urban_settlement
+            for key in grid_id_mapping:
+                lon, lat = key
+                region, urban_settlement = grid_id_mapping[key]
+                point = shapely.geometry.Point(lat, lon)
+                if gdf_akershus_bounds.contains(point).any():
+                    region = "Akershus"
+                elif gdf_oslo_bounds.contains(point).any():
+                    region = "Oslo"
+                urban_settlement = gdf_urban_settlement_bounds.contains(point).any()
+                grid_id_mapping[key] = (region, urban_settlement)
+            
+            for idx in range(len(row_data["region"])):
+                cell_corners = utils.get_cell_corners(row_data["easting"][idx], row_data["northing"][idx])
+
+                region = row_data["region"][idx]
+                urban_settlement = row_data["urban_settlement"][idx]
+                # get urban_settlement value
+                for cell_corner in cell_corners:
+                    _, new_urban_settlement = grid_id_mapping[cell_corner]
+                    if new_urban_settlement:
+                        urban_settlement = new_urban_settlement
+                        break
+
+                row_data["urban_settlement"][idx] = urban_settlement
+                # get region value
+                oslo_count = 0
+                akershus_count = 0
+                for cell_corner in cell_corners:
+                    new_region, _ = grid_id_mapping[cell_corner]
+                    if new_region == "Oslo":
+                        oslo_count += 1
+                    elif new_region == "Akershus":
+                        akershus_count += 1
+                
+                if (oslo_count + akershus_count) == 0:
+                    region = np.nan
+                elif oslo_count >= akershus_count:
+                    region = "Oslo"
+                else:
+                    region = "Akershus"
+                    
+                row_data["region"][idx] = region
             # convert to dataframe
             df_incidents = pd.DataFrame(row_data)
             for column, dtype in column_data_types.items():
@@ -309,24 +369,18 @@ class DataPreprocessorOUS(DataPreprocessor):
         if not os.path.exists(self._enhanced_incidents_data_path):
             # load processed dataset
             df_incidents = pd.read_csv(self._processed_incidents_data_path, low_memory=False)
-            
             # drop rows with NaN values
-            df_incidents.dropna(subset=["time_available", "time_dispatch", "triage_impression_during_call", "time_ambulance_notified"], inplace=True)
-            
+            df_incidents.dropna(subset=["time_available", "time_dispatch", "triage_impression_during_call", "time_ambulance_notified", "region"], inplace=True)
             # drop rows where time_arrival_scene or time_departure_scene does not exist, but time_arrival_hospital exists
             mask1 = df_incidents["time_arrival_scene"].isna() & df_incidents["time_arrival_hospital"].notna()
             mask2 = df_incidents["time_departure_scene"].isna() & df_incidents["time_arrival_hospital"].notna()
             df_incidents = df_incidents[~(mask1 | mask2)]
-            
             # drop rows with 'Moderate Priority' or 'Scheduled'
             df_incidents = df_incidents.query('triage_impression_during_call not in ["Moderate Priority", "Scheduled"]').copy()
-
             # fix rows with negative time frames
             df_incidents = fix_timeframes(df_incidents)
-
             # remove outliers
             df_incidents = remove_outliers_pdf(df_incidents, 'response_time_sec')
-
             # save to disk
             df_incidents.to_csv(self._enhanced_incidents_data_path, index=False)
         progress_bar.update(1)
@@ -345,7 +399,7 @@ def fix_timeframes(df_incidents: pd.DataFrame) -> pd.DataFrame:
         'time_arrival_hospital', 'time_available'
     ]
     df_incidents[time_columns] = df_incidents[time_columns].apply(pd.to_datetime, errors='coerce', format="%Y.%m.%dT%H:%M:%S")
-    
+
     # Data cleaning for time columns
     # You can also replace 'median_time_diff' with the actual median value you've calculated
     condition_dict = {
@@ -357,7 +411,7 @@ def fix_timeframes(df_incidents: pd.DataFrame) -> pd.DataFrame:
         ('time_departure_scene', 'time_arrival_hospital'): 'delete',
         ('time_arrival_hospital', 'time_available'): 'delete'
     }
-    
+
     median_values_dict = {
         ('time_call_received', 'time_call_processed'): 103.0,
         ('time_call_processed', 'time_ambulance_notified'): 83.0,
@@ -367,7 +421,7 @@ def fix_timeframes(df_incidents: pd.DataFrame) -> pd.DataFrame:
         ('time_departure_scene', 'time_arrival_hospital') : 862.0,
         ('time_arrival_hospital', 'time_available') : 864.0,
     }
-    
+
     for (col1, col2), action in condition_dict.items():
         if action == 'replace':
             median_time_diff = median_values_dict.get((col1, col2), 0)
@@ -389,20 +443,20 @@ def fix_timeframes(df_incidents: pd.DataFrame) -> pd.DataFrame:
     )
     for col in time_columns:
         df_incidents[col] = df_incidents[col].dt.strftime('%Y.%m.%dT%H:%M:%S')
-    
+
     return df_incidents
-    
-    
+
+
 def remove_outliers_zscore(df, column_name, z_score_threshold=3):
     # calculate the z-scores of the log-transformed values
     df_log = np.log1p(df[column_name])
     mean_log = np.mean(df_log)
     std_log = np.std(df_log)
     z_scores_log = (df_log - mean_log) / std_log
-    
+
     # identify the rows where the z-score is within the threshold
     mask = np.abs(z_scores_log) <= z_score_threshold
-    
+
     return df[mask]
 
 
@@ -412,9 +466,8 @@ def remove_outliers_pdf(df, column_name, threshold=0.01):
     mean_log = np.mean(df_log)
     std_log = np.std(df_log)
     pdf_values = norm.pdf(df_log, mean_log, std_log)
-    
+
     # identify the rows where the PDF value is above the threshold
     mask = pdf_values >= threshold
 
     return df[mask]
-        
