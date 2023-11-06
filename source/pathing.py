@@ -8,6 +8,7 @@ import networkx as nx
 import os
 import geopandas as gpd
 import shapely.geometry
+import osmnx.distance
 
 
 class OriginDestination:
@@ -49,18 +50,14 @@ class OriginDestination:
 
         self.ids = [utils.row_col_to_id(row, col)
                     for row in range(self.min_row, self.max_row + 1)
-                    for col in range(self.min_col, self.max_col + 1)][:10]
+                    for col in range(self.min_col, self.max_col + 1)]
 
         self.id_to_index = {id_: index for index, id_ in enumerate(sorted(self.ids))}
 
         self.num_ids = len(self.ids)
-        self.matrix = np.zeros((self.num_ids, self.num_ids), dtype=float)
+        self.matrix = np.zeros((self.num_ids, self.num_ids), dtype=np.float32)
 
         self.graph = self.get_graph()
-
-        gdf_nodes = ox.graph_to_gdfs(self.graph, edges=False)
-        gdf_nodes['geometry'] = gdf_nodes.apply(lambda row: shapely.geometry.Point(row['x'], row['y']), axis=1)
-        gdf_nodes = gpd.GeoDataFrame(gdf_nodes, geometry='geometry')
 
         for origin_id in tqdm(self.ids, desc="Building OD matrix"):
             origin_index = self.id_to_index[origin_id]
@@ -75,8 +72,8 @@ class OriginDestination:
 
                 destination_location = utils.id_to_easting_northing(destination_id)
 
-                origin_node = self.get_nearest_node(shapely.geometry.Point(origin_location), gdf_nodes)
-                destination_node = self.get_nearest_node(shapely.geometry.Point(destination_location), gdf_nodes)
+                origin_node = self.get_nearest_node(origin_location[0], origin_location[1])
+                destination_node = self.get_nearest_node(destination_location[0], destination_location[1])
 
                 if origin_node == destination_node:
                     self.matrix[origin_index, destination_index] = 0
@@ -93,17 +90,16 @@ class OriginDestination:
         
         self.write()
 
-    def get_nearest_node(self, point, gdf_nodes: gpd.GeoDataFrame):
-        node_key = (point.x, point.y)
+    def get_nearest_node(self, x, y):
+        node_key = (x, y)
         if node_key in self.node_cache:
             return self.node_cache[node_key]
 
-        nearest_node_idx = list(gdf_nodes.sindex.nearest(point, return_all=False))[0]
-        nearest_node_id = gdf_nodes.iloc[nearest_node_idx].index.name
+        node = osmnx.distance.nearest_nodes(self.graph, x, y)
 
-        self.node_cache[node_key] = nearest_node_id
+        self.node_cache[node_key] = node
 
-        return nearest_node_id
+        return node
     
     def write(self):
         with open(self.file_path, "w") as file:
