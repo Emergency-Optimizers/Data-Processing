@@ -40,6 +40,8 @@ class OriginDestination:
 
         self.graph = None
         self.node_cache = {}
+        self.ids = df["grid_id"].unique()
+        self.has_visited = {}
 
     def build(self):
         if os.path.exists(self.file_path):
@@ -48,9 +50,9 @@ class OriginDestination:
             progress_bar.update(1)
             return
 
-        self.ids = [utils.row_col_to_id(row, col)
-                    for row in range(self.min_row, self.max_row + 1)
-                    for col in range(self.min_col, self.max_col + 1)]
+        #self.ids = [utils.row_col_to_id(row, col)
+        #            for row in range(self.min_row, self.max_row + 1)
+        #            for col in range(self.min_col, self.max_col + 1)]
 
         self.id_to_index = {id_: index for index, id_ in enumerate(sorted(self.ids))}
 
@@ -64,6 +66,12 @@ class OriginDestination:
             origin_location = utils.id_to_easting_northing(origin_id)
 
             for destination_id in self.ids:
+                if (origin_id, destination_id) in self.has_visited:
+                    continue
+                else:
+                    self.has_visited[(origin_id, destination_id)] = True
+                    self.has_visited[(destination_id, origin_id)] = True
+
                 destination_index = self.id_to_index[destination_id]
 
                 if origin_id == destination_id:
@@ -77,6 +85,7 @@ class OriginDestination:
 
                 if origin_node == destination_node:
                     self.matrix[origin_index, destination_index] = 0
+                    self.matrix[destination_index, origin_index] = 0
                     continue
 
                 shortest_time_path = nx.shortest_path(self.graph, origin_node, destination_node, weight='time')
@@ -85,8 +94,10 @@ class OriginDestination:
 
                 if total_travel_time != 0:
                     self.matrix[origin_index, destination_index] = total_travel_time
+                    self.matrix[destination_index, origin_index] = total_travel_time
                 else:
                     self.matrix[origin_index, destination_index] = float("inf")
+                    self.matrix[destination_index, origin_index] = float("inf")
         
         self.write()
 
@@ -114,7 +125,7 @@ class OriginDestination:
         self.matrix = np.array(matrix)
     
     def get_graph(self):
-        graph = ox.graph_from_point(self.graph_central_location, dist=self.grap_distance, network_type="drive")
+        graph = ox.graph_from_point(self.graph_central_location, dist=self.grap_distance, network_type="drive", simplify=True, retain_all=False)
         graph = ox.project_graph(graph, to_crs=self.utm_epsg)
 
         speeds_normal = {
