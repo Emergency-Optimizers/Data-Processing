@@ -322,24 +322,52 @@ class DataPreprocessorOUS(DataPreprocessor):
             df_depots_clean = pd.read_csv(self._clean_depots_data_path)
             # create columns
             column_data_types = {
-                "id": "int32",
+                "type": "str",
                 "static": "bool",
                 "longitude": "float32",
-                "latitude": "float32"
+                "latitude": "float32",
+                "easting": "int32",
+                "northing": "int32",
+                "grid_id": "int32",
+                "grid_row": "int32",
+                "grid_col": "int32"
             }
             # create rows
             row_data = {
-                "id": [],
+                "type": [],
                 "static": [],
                 "longitude": [],
-                "latitude": []
+                "latitude": [],
+                "easting": [],
+                "northing": [],
+                "grid_id": [],
+                "grid_row": [],
+                "grid_col": []
             }
             # iterate over cleaned dataset
             for _, row in df_depots_clean.iterrows():
-                row_data["id"].append(row["id"])
-                row_data["static"].append(True if row["type"] == "stasjon" else False)
-                row_data["longitude"].append(row["longitude"])
-                row_data["latitude"].append(row["latitude"])
+                type = None
+                if row["type"] == "stasjon":
+                    type = "Depot"
+                elif row["type"] == "beredskapspunkt":
+                    type = "Depot"
+                elif row["type"] == "sykehus":
+                    type = "Hospital"
+                row_data["type"].append(type)
+                row_data["static"].append(False if row["type"] == "beredskapspunkt" else True)
+                # get geo data
+                easting, northing = row["easting"], row["northing"]
+                lon, lat = utils.utm_to_geographic(easting, northing)
+                grid_id = utils.utm_to_id(easting, northing)
+                grid_row, grid_col = utils.id_to_row_col(grid_id)
+
+                row_data["longitude"].append(lon)
+                row_data["latitude"].append(lat)
+                row_data["easting"].append(easting)
+                row_data["northing"].append(northing)
+                row_data["grid_id"].append(grid_id)
+                row_data["grid_row"].append(grid_row)
+                row_data["grid_col"].append(grid_col)
             # convert to dataframe and save to disk
             df_depots = pd.DataFrame(row_data)
             for column, dtype in column_data_types.items():
