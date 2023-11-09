@@ -1,4 +1,5 @@
 import utils
+import constants
 
 import numpy as np
 import pandas as pd
@@ -26,7 +27,7 @@ class OriginDestination:
         self.utm_epsg = utm_epsg
 
         df = pd.read_csv(utils.get_enhanced_incidents_path(self.dataset_id), low_memory=False)
-        self.file_path = os.path.join(os.path.dirname(utils.get_enhanced_incidents_path(self.dataset_id)), "od_matrix.txt")
+        self.file_path = os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", self.dataset_id, "od_matrix.txt")
         
         self.min_row = df["grid_row"].min()
         self.min_col = df["grid_col"].min()
