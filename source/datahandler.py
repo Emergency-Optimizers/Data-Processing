@@ -313,6 +313,9 @@ class DataPreprocessorOUS(DataPreprocessor):
                 df_incidents[column] = df_incidents[column].astype(dtype)
             # convert the triage codes
             df_incidents = self._rename_triage_categories(df_incidents)
+            # sort
+            df_incidents["time_call_received"] = pd.to_datetime(df_incidents["time_call_received"], format="%Y.%m.%dT%H:%M:%S")
+            df_incidents.sort_values(by="time_call_received", inplace=True)
             # save to disk
             df_incidents.to_csv(self._processed_incidents_data_path, index=False)
         progress_bar.update(1)
@@ -409,6 +412,9 @@ class DataPreprocessorOUS(DataPreprocessor):
             df_incidents = fix_timeframes(df_incidents)
             # remove outliers
             df_incidents = remove_outliers_pdf(df_incidents, 'response_time_sec')
+            # sort
+            df_incidents["time_call_received"] = pd.to_datetime(df_incidents["time_call_received"], format="%Y.%m.%dT%H:%M:%S")
+            df_incidents.sort_values(by="time_call_received", inplace=True)
             # save to disk
             df_incidents.to_csv(self._enhanced_incidents_data_path, index=False)
         progress_bar.update(1)
