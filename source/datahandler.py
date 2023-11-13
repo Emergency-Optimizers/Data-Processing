@@ -434,64 +434,30 @@ def fix_timeframes(df_incidents: pd.DataFrame) -> pd.DataFrame:
     ]
     df_incidents[time_columns] = df_incidents[time_columns].apply(pd.to_datetime, errors='coerce', format="%Y.%m.%dT%H:%M:%S")
 
-    # Data cleaning for time columns
-    # You can also replace 'median_time_diff' with the actual median value you've calculated
-    condition_dict = {
-        ('time_call_received', 'time_call_processed'): 'replace',
-        ('time_call_processed', 'time_ambulance_notified'): 'replace',
-        ('time_ambulance_notified', 'time_dispatch'): 'delete',
-        ('time_dispatch', 'time_arrival_scene'): 'delete',
-        ('time_arrival_scene', 'time_departure_scene'): 'delete',
-        ('time_departure_scene', 'time_arrival_hospital'): 'delete',
-        ('time_arrival_hospital', 'time_available'): 'delete'
-    }
+    # Iterate over each pair of time columns in order
+    for i in range(len(time_columns) - 1):
+        col1, col2 = time_columns[i], time_columns[i + 1]
 
-    median_values_dict = {
-        ('time_call_received', 'time_call_processed'): 103.0,
-        ('time_call_processed', 'time_ambulance_notified'): 83.0,
-        ('time_ambulance_notified', 'time_dispatch'): 71.0,
-        ('time_dispatch', 'time_arrival_scene'): 483.0,
-        ('time_arrival_scene', 'time_departure_scene') : 1070.0,
-        ('time_departure_scene', 'time_arrival_hospital') : 862.0,
-        ('time_arrival_hospital', 'time_available') : 864.0,
-    }
+        # Find rows where the later time is before the earlier time
+        incorrect_order_mask = df_incidents[col2] < df_incidents[col1]
 
-    for (col1, col2), action in condition_dict.items():
-        if action == 'replace':
-            median_time_diff = median_values_dict.get((col1, col2), 0)
-            # Replace indices where the time difference is <= 1 second
-            replace_indices = df_incidents[(df_incidents[col1] > df_incidents[col2]) & 
-                                        ((df_incidents[col1] - df_incidents[col2]).dt.total_seconds() <= 1)].index
-            df_incidents.loc[replace_indices, col2] = df_incidents.loc[replace_indices, col1] + pd.Timedelta(seconds=median_time_diff)
-            df_incidents.loc[replace_indices, 'synthetic'] = True
-            # Delete indices where the time difference is > 1 second
-            delete_indices = df_incidents[(df_incidents[col1] > df_incidents[col2]) & 
-                                        ((df_incidents[col1] - df_incidents[col2]).dt.total_seconds() > 1)].index
-            df_incidents.drop(delete_indices, inplace=True)
-        elif action == 'delete':
-            delete_indices = df_incidents[df_incidents[col1] > df_incidents[col2]].index
-            df_incidents.drop(delete_indices, inplace=True)
-    # recalculate response time
-    df_incidents['response_time_sec'] = df_incidents.apply(
-        lambda row: (row['time_arrival_scene'] - row['time_call_received']).total_seconds(), axis=1
-    )
-    for col in time_columns:
-        df_incidents[col] = df_incidents[col].dt.strftime('%Y.%m.%dT%H:%M:%S')
+        # Calculate median time difference based on all other correct rows
+        correct_order_mask = df_incidents[col2] >= df_incidents[col1]
+        median_time_diff = (df_incidents.loc[correct_order_mask, col2] - df_incidents.loc[correct_order_mask, col1]).dt.total_seconds().median()
+
+        # Correct the later timestamp by setting it to the earlier timestamp plus the median time difference
+        num_incorrect = incorrect_order_mask.sum()
+        if num_incorrect > 0:
+            print(f"Correcting {num_incorrect} rows where {col2} is before {col1} by setting {col2} to {col1} + median time difference.")
+            df_incidents.loc[incorrect_order_mask, col2] = df_incidents.loc[incorrect_order_mask, col1] + pd.Timedelta(seconds=median_time_diff)
+
+    # Recalculate response time
+    df_incidents['response_time_sec'] = (df_incidents['time_arrival_scene'] - df_incidents['time_call_received']).dt.total_seconds()
+
+    # Convert time columns back to string format if needed
+    df_incidents[time_columns] = df_incidents[time_columns].applymap(lambda x: x.strftime('%Y.%m.%dT%H:%M:%S') if not pd.isnull(x) else '')
 
     return df_incidents
-
-
-def remove_outliers_zscore(df, column_name, z_score_threshold=3):
-    # calculate the z-scores of the log-transformed values
-    df_log = np.log1p(df[column_name])
-    mean_log = np.mean(df_log)
-    std_log = np.std(df_log)
-    z_scores_log = (df_log - mean_log) / std_log
-
-    # identify the rows where the z-score is within the threshold
-    mask = np.abs(z_scores_log) <= z_score_threshold
-
-    return df[mask]
 
 
 def remove_outliers_pdf(df, column_name, threshold=0.01):
