@@ -314,8 +314,9 @@ class DataPreprocessorOUS(DataPreprocessor):
             # convert the triage codes
             df_incidents = self._rename_triage_categories(df_incidents)
             # sort
-            # df_incidents["time_call_received"] = pd.to_datetime(df_incidents["time_call_received"], format="%Y.%m.%dT%H:%M:%S")
-            # df_incidents.sort_values(by="time_call_received", inplace=True)
+            df_incidents["time_call_received"] = pd.to_datetime(df_incidents["time_call_received"], format="%Y.%m.%dT%H:%M:%S")
+            df_incidents.sort_values(by="time_call_received", inplace=True)
+            df_incidents["time_call_received"] = df_incidents["time_call_received"].dt.strftime("%Y.%m.%dT%H:%M:%S")
             # save to disk
             df_incidents.to_csv(self._processed_incidents_data_path, index=False)
         progress_bar.update(1)
@@ -413,8 +414,9 @@ class DataPreprocessorOUS(DataPreprocessor):
             # remove outliers
             df_incidents = remove_outliers_pdf(df_incidents, 'response_time_sec')
             # sort
-            # df_incidents["time_call_received"] = pd.to_datetime(df_incidents["time_call_received"], format="%Y.%m.%dT%H:%M:%S")
-            # df_incidents.sort_values(by="time_call_received", inplace=True)
+            df_incidents["time_call_received"] = pd.to_datetime(df_incidents["time_call_received"], format="%Y.%m.%dT%H:%M:%S")
+            df_incidents.sort_values(by="time_call_received", inplace=True)
+            df_incidents["time_call_received"] = df_incidents["time_call_received"].dt.strftime("%Y.%m.%dT%H:%M:%S")
             # save to disk
             df_incidents.to_csv(self._enhanced_incidents_data_path, index=False)
         progress_bar.update(1)
@@ -454,7 +456,7 @@ def fix_timeframes(df_incidents: pd.DataFrame) -> pd.DataFrame:
     df_incidents['response_time_sec'] = (df_incidents['time_arrival_scene'] - df_incidents['time_call_received']).dt.total_seconds()
 
     # convert time columns back to string format if needed
-    df_incidents[time_columns] = df_incidents[time_columns].applymap(lambda x: x.strftime('%Y.%m.%dT%H:%M:%S') if not pd.isnull(x) else '')
+    df_incidents[time_columns] = df_incidents[time_columns].map(lambda x: x.strftime('%Y.%m.%dT%H:%M:%S') if not pd.isnull(x) else '')
 
     return df_incidents
 
