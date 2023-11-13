@@ -434,27 +434,26 @@ def fix_timeframes(df_incidents: pd.DataFrame) -> pd.DataFrame:
     ]
     df_incidents[time_columns] = df_incidents[time_columns].apply(pd.to_datetime, errors='coerce', format="%Y.%m.%dT%H:%M:%S")
 
-    # Iterate over each pair of time columns in order
+    # iterate over each pair of time columns in order
     for i in range(len(time_columns) - 1):
         col1, col2 = time_columns[i], time_columns[i + 1]
 
-        # Find rows where the later time is before the earlier time
+        # find rows where the later time is before the earlier time
         incorrect_order_mask = df_incidents[col2] < df_incidents[col1]
 
-        # Calculate median time difference based on all other correct rows
+        # calculate median time difference based on all other correct rows
         correct_order_mask = df_incidents[col2] >= df_incidents[col1]
         median_time_diff = (df_incidents.loc[correct_order_mask, col2] - df_incidents.loc[correct_order_mask, col1]).dt.total_seconds().median()
 
-        # Correct the later timestamp by setting it to the earlier timestamp plus the median time difference
+        # correct the later timestamp by setting it to the earlier timestamp plus the median time difference
         num_incorrect = incorrect_order_mask.sum()
         if num_incorrect > 0:
-            print(f"Correcting {num_incorrect} rows where {col2} is before {col1} by setting {col2} to {col1} + median time difference.")
             df_incidents.loc[incorrect_order_mask, col2] = df_incidents.loc[incorrect_order_mask, col1] + pd.Timedelta(seconds=median_time_diff)
-
-    # Recalculate response time
+            df_incidents.loc[incorrect_order_mask, 'synthetic'] = True
+    # recalculate response time
     df_incidents['response_time_sec'] = (df_incidents['time_arrival_scene'] - df_incidents['time_call_received']).dt.total_seconds()
 
-    # Convert time columns back to string format if needed
+    # convert time columns back to string format if needed
     df_incidents[time_columns] = df_incidents[time_columns].applymap(lambda x: x.strftime('%Y.%m.%dT%H:%M:%S') if not pd.isnull(x) else '')
 
     return df_incidents
