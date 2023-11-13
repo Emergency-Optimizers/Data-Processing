@@ -407,7 +407,7 @@ class DataPreprocessorOUS(DataPreprocessor):
             mask2 = df_incidents["time_departure_scene"].isna() & df_incidents["time_arrival_hospital"].notna()
             df_incidents = df_incidents[~(mask1 | mask2)]
             # drop rows with 'Moderate Priority' or 'Scheduled'
-            df_incidents = df_incidents.query('triage_impression_during_call not in ["Moderate Priority", "Scheduled"]').copy()
+            df_incidents = df_incidents.query('triage_impression_during_call not in ["V1", "V2"]').copy()
             # fix rows with negative time frames
             df_incidents = fix_timeframes(df_incidents)
             # remove outliers
