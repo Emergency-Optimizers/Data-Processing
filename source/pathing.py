@@ -136,7 +136,9 @@ class OriginDestination:
             60: 85.8,
             70: 91.8,
             80: 104.2,
+            90: 104.2, # custom
             100: 120.0,
+            110: 120.0, # custom
             120: 136.9
         }
         INTERSECTION_PENALTY = 10
