@@ -406,7 +406,8 @@ class DataPreprocessorOUS(DataPreprocessor):
             # drop rows where time_arrival_scene or time_departure_scene does not exist, but time_arrival_hospital exists
             mask1 = df_incidents["time_arrival_scene"].isna() & df_incidents["time_arrival_hospital"].notna()
             mask2 = df_incidents["time_departure_scene"].isna() & df_incidents["time_arrival_hospital"].notna()
-            df_incidents = df_incidents[~(mask1 | mask2)]
+            mask3 = df_incidents["time_departure_scene"].notna() & df_incidents["time_arrival_hospital"].isna()
+            df_incidents = df_incidents[~(mask1 | mask2 | mask3)]
             # drop rows with 'Moderate Priority' or 'Scheduled'
             df_incidents = df_incidents.query('triage_impression_during_call not in ["V1", "V2"]').copy()
             # fix rows with negative time frames
