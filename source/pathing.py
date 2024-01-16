@@ -27,13 +27,14 @@ class OriginDestination:
         self.utm_epsg = utm_epsg
 
         df = pd.read_csv(utils.get_enhanced_incidents_path(self.dataset_id), low_memory=False)
+        df2 = pd.read_csv(utils.get_enhanced_depots_path(self.dataset_id), low_memory=False)
+        grid_ids = pd.concat([df["grid_id"], df2["grid_id"]])
         self.file_path = os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", self.dataset_id, "od_matrix.txt")
         
         self.min_row = df["grid_row"].min()
         self.min_col = df["grid_col"].min()
         self.max_row = df["grid_row"].max()
         self.max_col = df["grid_col"].max()
-        self.ids = None
         self.matrix: np.ndarray = None
 
         self.id_to_index: dict = None
@@ -41,7 +42,7 @@ class OriginDestination:
 
         self.graph = None
         self.node_cache = {}
-        self.ids = df["grid_id"].unique()
+        self.ids = grid_ids.unique()
         self.has_visited = {}
 
     def build(self):
@@ -62,7 +63,11 @@ class OriginDestination:
 
         self.graph = self.get_graph()
 
-        for origin_id in tqdm(self.ids, desc="Building OD matrix"):
+        totalGridsToProcess = ((self.ids.size - 1) * self.ids.size) / 2
+
+        progress_bar = tqdm(desc="Building OD matrix", total=totalGridsToProcess)
+
+        for origin_id in self.ids:
             origin_index = self.id_to_index[origin_id]
             origin_location = utils.id_to_easting_northing(origin_id)
 
@@ -87,6 +92,7 @@ class OriginDestination:
                 if origin_node == destination_node:
                     self.matrix[origin_index, destination_index] = 0
                     self.matrix[destination_index, origin_index] = 0
+                    progress_bar.update(1)
                     continue
 
                 shortest_time_path = nx.shortest_path(self.graph, origin_node, destination_node, weight='time')
@@ -99,6 +105,8 @@ class OriginDestination:
                 else:
                     self.matrix[origin_index, destination_index] = float("inf")
                     self.matrix[destination_index, origin_index] = float("inf")
+
+                progress_bar.update(1)
         
         self.write()
 
