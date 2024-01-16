@@ -7,8 +7,7 @@ from tqdm import tqdm
 import osmnx as ox
 import networkx as nx
 import os
-import geopandas as gpd
-import shapely.geometry
+import math
 import osmnx.distance
 
 
@@ -63,7 +62,7 @@ class OriginDestination:
 
         self.graph = self.get_graph()
 
-        totalGridsToProcess = ((self.ids.size - 1) * self.ids.size) / 2
+        totalGridsToProcess = int(((self.ids.size - 1) * self.ids.size) / 2)
 
         progress_bar = tqdm(desc="Building OD matrix", total=totalGridsToProcess)
 
@@ -90,8 +89,22 @@ class OriginDestination:
                 destination_node = self.get_nearest_node(destination_location[0], destination_location[1])
 
                 if origin_node == destination_node:
-                    self.matrix[origin_index, destination_index] = 0
-                    self.matrix[destination_index, origin_index] = 0
+                    origin_lon, origin_lat = utils.utm_to_geographic(origin_location[0], origin_location[1])
+                    destination_lon, destination_lat = utils.utm_to_geographic(destination_location[0], destination_location[1])
+
+                    travel_time = self.calculate_travel_time(
+                        origin_lat,
+                        origin_lon, 
+                        destination_lat,
+                        destination_lon, 
+                        speed_km_per_hr=50
+                    )
+
+                    print(travel_time)
+
+                    self.matrix[origin_index, destination_index] = travel_time
+                    self.matrix[destination_index, origin_index] = travel_time
+
                     progress_bar.update(1)
                     continue
 
@@ -144,9 +157,9 @@ class OriginDestination:
             60: 85.8,
             70: 91.8,
             80: 104.2,
-            90: 104.2, # custom
+            90: 112.1,
             100: 120.0,
-            110: 120.0, # custom
+            110: 128.45,
             120: 136.9
         }
         INTERSECTION_PENALTY = 10
@@ -154,7 +167,7 @@ class OriginDestination:
         # Adjust the weights of the edges in the graph based on the average speeds and intersection penalty
         for u, v, data in graph.edges(data=True):
             # Use average speeds if available
-            if "maxspeed" in data:
+            if "maxspeed" in data and data["maxspeed"] != "NO:urban":
                 # Take the min of the maxspeed list (in case it's a list)
                 if isinstance(data["maxspeed"], list):
                     speed_limits = [speeds_normal.get(int(s), int(s)) for s in data["maxspeed"]]
@@ -178,3 +191,31 @@ class OriginDestination:
                 data["time"] += INTERSECTION_PENALTY / 60
 
         return graph
+
+    def haversine_distance(self, lat1, lon1, lat2, lon2):
+        # Radius of the Earth in km
+        R = 6371.0
+
+        # Convert latitude and longitude from degrees to radians
+        lat1_rad = math.radians(lat1)
+        lon1_rad = math.radians(lon1)
+        lat2_rad = math.radians(lat2)
+        lon2_rad = math.radians(lon2)
+
+        # Calculate differences in coordinates
+        dlat = lat2_rad - lat1_rad
+        dlon = lon2_rad - lon1_rad
+
+        # Haversine formula
+        a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2)**2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+        # Distance in kilometers
+        distance = R * c
+        return distance
+
+    def calculate_travel_time(self, lat1, lon1, lat2, lon2, speed_km_per_hr):
+        distance_km = self.haversine_distance(lat1, lon1, lat2, lon2)
+        time_hr = distance_km / speed_km_per_hr
+        time_sec = time_hr * 3600  # Convert hours to seconds
+        return time_sec
