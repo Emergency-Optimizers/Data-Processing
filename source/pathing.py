@@ -9,6 +9,7 @@ import networkx as nx
 import os
 import math
 import osmnx.distance
+import matplotlib.pyplot as plt
 
 
 class OriginDestination:
@@ -42,6 +43,7 @@ class OriginDestination:
         self.graph = None
         self.node_cache = {}
         self.ids = grid_ids.unique()
+        self.ids.sort()
         self.has_visited = {}
 
     def build(self):
@@ -55,20 +57,20 @@ class OriginDestination:
         #            for row in range(self.min_row, self.max_row + 1)
         #            for col in range(self.min_col, self.max_col + 1)]
 
-        self.id_to_index = {id_: index for index, id_ in enumerate(sorted(self.ids))}
+        self.id_to_index = {id_: index for index, id_ in enumerate(self.ids)}
 
         self.num_ids = len(self.ids)
         self.matrix = np.zeros((self.num_ids, self.num_ids), dtype=np.float32)
 
         self.graph = self.get_graph()
 
-        totalGridsToProcess = int(((self.ids.size - 1) * self.ids.size) / 2)
+        totalGridsToProcess = int(((self.num_ids - 1) * self.num_ids) / 2)
 
         progress_bar = tqdm(desc="Building OD matrix", total=totalGridsToProcess)
-
+        
         for origin_id in self.ids:
             origin_index = self.id_to_index[origin_id]
-            origin_location = utils.id_to_easting_northing(origin_id)
+            origin_location = utils.id_to_utm(origin_id)
 
             for destination_id in self.ids:
                 if (origin_id, destination_id) in self.has_visited:
@@ -83,41 +85,39 @@ class OriginDestination:
                     self.matrix[origin_index, destination_index] = 0
                     continue
 
-                destination_location = utils.id_to_easting_northing(destination_id)
+                destination_location = utils.id_to_utm(destination_id)
 
                 origin_node = self.get_nearest_node(origin_location[0], origin_location[1])
                 destination_node = self.get_nearest_node(destination_location[0], destination_location[1])
 
                 if origin_node == destination_node:
-                    origin_lon, origin_lat = utils.utm_to_geographic(origin_location[0], origin_location[1])
-                    destination_lon, destination_lat = utils.utm_to_geographic(destination_location[0], destination_location[1])
-
-                    travel_time = self.calculate_travel_time(
-                        origin_lat,
-                        origin_lon, 
-                        destination_lat,
-                        destination_lon, 
-                        speed_km_per_hr=50
-                    )
-
-                    print(travel_time)
+                    distance  = math.dist(origin_location, destination_location)
+                    speed_km_per_hr = 50
+                    distance_km = distance / 1000
+                    time_hr = distance_km / speed_km_per_hr
+                    travel_time = time_hr * 3600
 
                     self.matrix[origin_index, destination_index] = travel_time
                     self.matrix[destination_index, origin_index] = travel_time
 
+                    print(f"\nUSING EUCLIDEAN DISTANCE: {origin_id} -> {destination_id} ({travel_time} seconds)")
+
                     progress_bar.update(1)
                     continue
 
-                shortest_time_path = nx.shortest_path(self.graph, origin_node, destination_node, weight='time')
-
-                total_travel_time = sum(self.graph[u][v][0]['time'] for u, v in zip(shortest_time_path[:-1], shortest_time_path[1:])) * 60
+                try:
+                    shortest_time_path = nx.shortest_path(self.graph, origin_node, destination_node, weight='time')
+                    total_travel_time = sum(self.graph[u][v][0]['time'] for u, v in zip(shortest_time_path[:-1], shortest_time_path[1:])) * 60
+                except nx.NetworkXNoPath:
+                    print(f"\nNO PATH: {origin_node} -> {destination_node} ({origin_id} -> {destination_id})")
+                    total_travel_time = 0
 
                 if total_travel_time != 0:
                     self.matrix[origin_index, destination_index] = total_travel_time
                     self.matrix[destination_index, origin_index] = total_travel_time
                 else:
-                    self.matrix[origin_index, destination_index] = float("inf")
-                    self.matrix[destination_index, origin_index] = float("inf")
+                    self.matrix[origin_index, destination_index] = np.inf
+                    self.matrix[destination_index, origin_index] = np.inf
 
                 progress_bar.update(1)
         
@@ -147,7 +147,7 @@ class OriginDestination:
         self.matrix = np.array(matrix)
     
     def get_graph(self):
-        graph = ox.graph_from_point(self.graph_central_location, dist=self.grap_distance, network_type="drive", simplify=True, retain_all=False)
+        graph = ox.graph_from_point(self.graph_central_location, dist=self.grap_distance, dist_type="bbox", network_type="drive", simplify=True, retain_all=False)
         graph = ox.project_graph(graph, to_crs=self.utm_epsg)
 
         speeds_normal = {
@@ -191,31 +191,3 @@ class OriginDestination:
                 data["time"] += INTERSECTION_PENALTY / 60
 
         return graph
-
-    def haversine_distance(self, lat1, lon1, lat2, lon2):
-        # Radius of the Earth in km
-        R = 6371.0
-
-        # Convert latitude and longitude from degrees to radians
-        lat1_rad = math.radians(lat1)
-        lon1_rad = math.radians(lon1)
-        lat2_rad = math.radians(lat2)
-        lon2_rad = math.radians(lon2)
-
-        # Calculate differences in coordinates
-        dlat = lat2_rad - lat1_rad
-        dlon = lon2_rad - lon1_rad
-
-        # Haversine formula
-        a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2)**2
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-        # Distance in kilometers
-        distance = R * c
-        return distance
-
-    def calculate_travel_time(self, lat1, lon1, lat2, lon2, speed_km_per_hr):
-        distance_km = self.haversine_distance(lat1, lon1, lat2, lon2)
-        time_hr = distance_km / speed_km_per_hr
-        time_sec = time_hr * 3600  # Convert hours to seconds
-        return time_sec

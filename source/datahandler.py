@@ -193,7 +193,7 @@ class DataPreprocessorOUS(DataPreprocessor):
                 "latitude": "float32",
                 "easting": "int32",
                 "northing": "int32",
-                "grid_id": "int32",
+                "grid_id": "int64",
                 "grid_row": "int32",
                 "grid_col": "int32",
                 "region": "str",
@@ -268,7 +268,7 @@ class DataPreprocessorOUS(DataPreprocessor):
             for key in grid_id_mapping:
                 lon, lat = key
                 region, urban_settlement = grid_id_mapping[key]
-                point = shapely.geometry.Point(lat, lon)
+                point = shapely.geometry.Point(lon, lat)
                 if gdf_akershus_bounds.contains(point).any():
                     region = "Akershus"
                 elif gdf_oslo_bounds.contains(point).any():
@@ -332,7 +332,7 @@ class DataPreprocessorOUS(DataPreprocessor):
                 "latitude": "float32",
                 "easting": "int32",
                 "northing": "int32",
-                "grid_id": "int32",
+                "grid_id": "int64",
                 "grid_row": "int32",
                 "grid_col": "int32"
             }
