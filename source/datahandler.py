@@ -165,6 +165,379 @@ class DataPreprocessor:
         pass
 
 
+class DataPreprocessorOUS_V2(DataPreprocessor):
+    """Class for preprocessing the OUS dataset. Version 2.0"""
+
+    def __init__(self) -> None:
+        super().__init__(dataset_id="oslo")
+    
+    def _clean_incidents(self) -> None:
+        super()._clean_incidents()
+
+        self.fix_csv_errors()
+        dataframe = pd.read_csv(self._clean_incidents_data_path, escapechar="\\", low_memory=False)
+        dataframe = self.split_geometry(dataframe)
+        dataframe = self.drop_unnecessary_raw_columns(dataframe)
+        dataframe = self.fix_raw_types(dataframe)
+
+        self.save_dataframe(dataframe, self._clean_incidents_data_path)
+    
+    def fix_csv_errors(self) -> None:
+        """Fixes common errors in a CSV file and saves the corrected version."""
+        with open(self._raw_incidents_data_path, "r", encoding="windows-1252") as source_file, \
+            open(self._clean_incidents_data_path, "w", encoding="utf-8") as target_file:
+            
+            # fix empty header
+            header = source_file.readline().replace('""', '"id"')
+            target_file.write(header)
+            
+            # fix comma errors in the data lines
+            for line in source_file:
+                if regex.match(r".*\(.*,.*\).*", line):
+                    line = regex.sub(r"\([^,()]+\K,", "\\,", line)
+
+                target_file.write(line)
+    
+    def split_geometry(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        """
+        Splits the 'geometry' column of the DataFrame into two separate columns.
+
+        Args:
+            dataframe (pd.DataFrame): The DataFrame containing the 'geometry' column.
+
+        Returns:
+            pd.DataFrame: The DataFrame with the 'geometry' column split into 'geometry_x' and 'geometry_y'.
+        """
+        # splitting the 'geometry' column into two new columns
+        geometry_split = dataframe["geometry"].str.replace("c\(|\)", "", regex=True).str.split(", ", expand=True)
+        dataframe[["geometry_x", "geometry_y"]] = geometry_split
+
+        # drop the problematic column
+        dataframe.drop(["geometry"], axis=1, inplace=True)
+
+        return dataframe
+
+    def drop_unnecessary_raw_columns(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        columns_to_drop = [
+            "utrykningstid",
+            "responstid",
+            "gml_id",
+            "lokalId",
+            "navnerom",
+            "versjonId",
+            "oppdateringsdato",
+            "datauttaksdato",
+            "opphav",
+            "rsize",
+            "col",
+            "row",
+            "statistikkÅr"
+        ]
+        dataframe.drop(columns_to_drop, axis=1, inplace=True)
+
+        return dataframe
+
+    def fix_raw_types(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        headers_types = {
+            "id": "int64",
+            "hastegrad": "object",
+            "tidspunkt": "object",
+            "tiltak_opprettet": "object",
+            "ressurs_id": "object",
+            "tiltak_type": "object",
+            "varslet": "object",
+            "rykker_ut": "object",
+            "ank_hentested": "object",
+            "avg_hentested": "object",
+            "ank_levsted": "object",
+            "ledig": "object",
+            "ssbid1000M": "int64",
+            "xcoor": "int64",
+            "ycoor": "int64",
+            "popTot": "int64",
+            "popAve": "float64",
+            "popFem": "int64",
+            "popMal": "int64",
+            "geometry_x": "int64",
+            "geometry_y": "int64"
+        }
+        
+        dataframe = dataframe.astype(headers_types)
+
+        date_columns = [
+            "tidspunkt",
+            "tiltak_opprettet",
+            "varslet",
+            "rykker_ut",
+            "ank_hentested",
+            "avg_hentested",
+            "ank_levsted",
+            "ledig"
+        ]
+
+        for col in date_columns:
+            dataframe[col] = pd.to_datetime(dataframe[col], format="%d.%m.%Y %H:%M:%S ", errors="coerce")
+
+        return dataframe
+    
+    def _clean_depots(self) -> None:
+        super()._clean_depots()
+
+        dataframe = pd.read_csv(self._raw_depots_data_path)
+        self.save_dataframe(dataframe, self._clean_depots_data_path)
+    
+    def _process_incidents(self) -> None:
+        super()._process_incidents()
+
+        dataframe = self.initialize_processed_incidents_dataframe()
+        dataframe = self.add_geo_data(dataframe)
+
+        self.save_dataframe(dataframe, self._processed_incidents_data_path)
+    
+    def initialize_processed_incidents_dataframe(self) -> pd.DataFrame:
+        dataframe_clean = self.load_clean_incident_dataframe()
+
+        dataframe = pd.DataFrame()
+        dataframe["id"] = dataframe_clean["id"]
+        dataframe["triage_impression_during_call"] = dataframe_clean["hastegrad"]
+        dataframe["time_call_received"] = dataframe_clean["tidspunkt"]
+        dataframe["time_call_processed"] = dataframe_clean["tiltak_opprettet"]
+        dataframe["time_ambulance_notified"] = dataframe_clean["varslet"]
+        dataframe["time_dispatch"] = dataframe_clean["rykker_ut"]
+        dataframe["time_arrival_scene"] = dataframe_clean["ank_hentested"]
+        dataframe["time_departure_scene"] = dataframe_clean["avg_hentested"]
+        dataframe["time_arrival_hospital"] = dataframe_clean["ank_levsted"]
+        dataframe["time_available"] = dataframe_clean["ledig"]
+        dataframe["grid_id"] = dataframe_clean["ssbid1000M"]
+        dataframe["x"] = dataframe_clean["xcoor"]
+        dataframe["y"] = dataframe_clean["ycoor"]
+        dataframe["x_accurate"] = dataframe_clean["geometry_x"]
+        dataframe["y_accurate"] = dataframe_clean["geometry_y"]
+        dataframe["longitude"] = np.nan
+        dataframe["latitude"] = np.nan
+        dataframe["region"] = None
+        dataframe["urban_settlement"] = False
+
+        return dataframe
+    
+    def _process_depots(self) -> None:
+        super()._process_depots()
+
+        dataframe = self.initialize_processed_depots_dataframe()
+        dataframe = self.convert_depot_types(dataframe)
+        dataframe = self.add_grid_id(dataframe)
+        dataframe = self.add_geo_data(dataframe)
+
+        self.save_dataframe(dataframe, self._processed_depots_data_path)
+    
+    def initialize_processed_depots_dataframe(self) -> pd.DataFrame:
+        dataframe_clean = self.load_clean_depots_dataframe()
+
+        dataframe = pd.DataFrame()
+        dataframe["type"] = dataframe_clean["type"]
+        dataframe["grid_id"] = 0
+        dataframe["x"] = 0
+        dataframe["y"] = 0
+        dataframe["x_accurate"] = dataframe_clean["easting"]
+        dataframe["y_accurate"] = dataframe_clean["northing"]
+        dataframe["longitude"] = np.nan
+        dataframe["latitude"] = np.nan
+        dataframe["region"] = None
+        dataframe["urban_settlement"] = False
+
+        return dataframe
+    
+    def convert_depot_types(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        for index, _ in dataframe.iterrows():
+            depot_type = dataframe.at[index, "type"]
+
+            new_depot_type = None
+            if depot_type == "stasjon":
+                new_depot_type = "Depot"
+            elif depot_type == "beredskapspunkt":
+                new_depot_type = "Depot"
+            elif depot_type == "sykehus":
+                new_depot_type = "Hospital"
+            
+            dataframe.at[index, "type"] = new_depot_type
+        
+        return dataframe
+    
+    def add_grid_id(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        for index, _ in dataframe.iterrows():
+            x_accurate = dataframe.at[index, "x_accurate"]
+            y_accurate = dataframe.at[index, "y_accurate"]
+
+            grid_id = utils.utm_to_id(x_accurate, y_accurate)
+            x, y = utils.id_to_utm(grid_id)
+
+            dataframe.at[index, "grid_id"] = grid_id
+            dataframe.at[index, "x"] = x
+            dataframe.at[index, "y"] = y
+        
+        return dataframe
+
+    def add_geo_data(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        gdf_oslo_bounds = utils.get_bounds(file_paths=[os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "ssb_2019_oslo_polygon_epsg4326.geojson")])
+        gdf_akershus_bounds = utils.get_bounds(file_paths=[os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "ssb_2019_akershus_polygon_epsg4326.geojson")])
+        gdf_urban_settlement_bounds = utils.get_bounds(file_paths=[os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "ssb_2021_urban_settlements_polygon_epsg4326.geojson")])
+
+        cached_geo_data_point = {}
+        cached_geo_data_grid_id = {}
+
+        for index, _ in dataframe.iterrows():
+            grid_id = dataframe.at[index, "grid_id"]
+
+            if grid_id in cached_geo_data_grid_id:
+                longitude, latitude, region, urban_settlement = cached_geo_data_grid_id[grid_id]
+            else:
+                x = dataframe.at[index, "x"]
+                y = dataframe.at[index, "y"]
+
+                region_akershus_count = 0
+                region_oslo_count = 0
+                urban_settlement_count = 0
+
+                for longitude, latitude in utils.get_cell_corners(x, y):
+                    if (longitude, latitude) in cached_geo_data_point:
+                        region, urban_settlement = cached_geo_data_point[(longitude, latitude)]
+                    else:
+                        point = shapely.geometry.Point(longitude, latitude)
+
+                        region = None
+                        if gdf_akershus_bounds.contains(point).any():
+                            region = "Akershus"
+                        elif gdf_oslo_bounds.contains(point).any():
+                            region = "Oslo"
+
+                        urban_settlement = gdf_urban_settlement_bounds.contains(point).any()
+
+                        cached_geo_data_point[(longitude, latitude)] = (region, urban_settlement)
+
+                    if region == "Akershus":
+                        region_akershus_count += 1
+                    elif region == "Oslo":
+                        region_oslo_count += 1
+                        
+                    urban_settlement_count += urban_settlement
+                
+                if (region_akershus_count + region_oslo_count) == 0:
+                    region = None
+                elif region_oslo_count >= region_akershus_count:
+                    region = "Oslo"
+                else:
+                    region = "Akershus"
+                
+                urban_settlement = urban_settlement_count != 0
+
+                cached_geo_data_grid_id[grid_id] = (longitude, latitude, region, urban_settlement)
+            
+            dataframe.at[index, "longitude"] = longitude
+            dataframe.at[index, "latitude"] = latitude
+            dataframe.at[index, "region"] = region
+            dataframe.at[index, "urban_settlement"] = urban_settlement
+        
+        return dataframe
+    
+    def _enhance_incidents(self) -> None:
+        super()._enhance_incidents()
+    
+    def _enhance_depots(self) -> None:
+        super()._enhance_depots()
+    
+    def save_dataframe(self, dataframe: pd.DataFrame, filepath: str):
+        dataframe.to_csv(filepath, index=False)
+    
+    def load_clean_incident_dataframe(self) -> pd.DataFrame:
+        column_types = {
+            "id": "int64",
+            "hastegrad": "object",
+            "ressurs_id": "object",
+            "tiltak_type": "object",
+            "ssbid1000M": "int64",
+            "xcoor": "int64",
+            "ycoor": "int64",
+            "popTot": "int64",
+            "popAve": "float64",
+            "popFem": "int64",
+            "popMal": "int64",
+            "geometry_x": "int64",
+            "geometry_y": "int64"
+        }
+        column_index_dates = [2, 3, 6, 7, 8, 9, 10, 11]
+
+        dataframe = pd.read_csv(
+            self._clean_incidents_data_path,
+            dtype=column_types,
+            na_values=[""],
+            parse_dates=column_index_dates
+        )
+
+        return dataframe
+
+    def load_clean_depots_dataframe(self) -> pd.DataFrame:
+        column_types = {
+            "type": "object",
+            "easting": "int64",
+            "northing": "int64"
+        }
+
+        dataframe = pd.read_csv(
+            self._clean_depots_data_path,
+            dtype=column_types,
+            na_values=[""]
+        )
+
+        return dataframe
+    
+    def load_processed_incident_dataframe(self) -> pd.DataFrame:
+        column_types = {
+            "id": "int64",
+            "triage_impression_during_call": "object",
+            "grid_id": "int64",
+            "x": "int64",
+            "y": "int64",
+            "x_accurate": "int64",
+            "y_accurate": "int64",
+            "longitude": "float64",
+            "latitude": "float64",
+            "region": "object",
+            "urban_settlement": "bool"
+        }
+        column_index_dates = [2, 3, 4, 5, 6, 7, 8, 9]
+
+        dataframe = pd.read_csv(
+            self._processed_incidents_data_path,
+            dtype=column_types,
+            na_values=[""],
+            parse_dates=column_index_dates
+        )
+
+        return dataframe
+    
+    def load_processed_depots_dataframe(self) -> pd.DataFrame:
+        column_types = {
+            "type": "object",
+            "grid_id": "int64",
+            "x": "int64",
+            "y": "int64",
+            "x_accurate": "int64",
+            "y_accurate": "int64",
+            "longitude": "float64",
+            "latitude": "float64",
+            "region": "object",
+            "urban_settlement": "bool"
+        }
+
+        dataframe = pd.read_csv(
+            self._processed_depots_data_path,
+            dtype=column_types,
+            na_values=[""]
+        )
+
+        return dataframe
+
+
 class DataPreprocessorOUS(DataPreprocessor):
     """Class for preprocessing the OUS dataset."""
 
