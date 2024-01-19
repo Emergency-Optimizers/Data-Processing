@@ -73,6 +73,10 @@ class OriginDestination:
             origin_index = self.id_to_index[origin_id]
             origin_node = self.get_node(origin_id)
 
+            origin_nodes = []
+            destination_nodes = []
+            destination_indicies = []
+
             for destination_id in self.ids:
                 if (origin_id, destination_id) in self.has_visited:
                     continue
@@ -101,14 +105,25 @@ class OriginDestination:
                     progress_bar.update(1)
                     continue
 
-                shortest_time_path = osmnx.shortest_path(self.graph, origin_node, destination_node, weight='time', cpus=6)
+                origin_nodes.append(origin_node)
+                destination_nodes.append(destination_node)
+                destination_indicies.append(destination_index)
+
+            shortest_time_paths = osmnx.shortest_path(
+                self.graph,
+                origin_nodes,
+                destination_nodes,
+                weight='time',
+                cpus=6
+            )
+
+            for i, shortest_time_path in enumerate(shortest_time_paths):
                 total_travel_time = sum(self.graph[u][v][0]['time'] for u, v in zip(shortest_time_path[:-1], shortest_time_path[1:])) * 60
 
-                self.matrix[origin_index, destination_index] = total_travel_time
-                self.matrix[destination_index, origin_index] = total_travel_time
+                self.matrix[origin_index, destination_indicies[i]] = total_travel_time
+                self.matrix[destination_indicies[i], origin_index] = total_travel_time
 
-                progress_bar.update(1)
-            break
+            progress_bar.update(len(shortest_time_paths))
         self.write()
 
     def write(self):
