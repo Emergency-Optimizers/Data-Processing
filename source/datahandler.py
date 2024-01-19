@@ -38,31 +38,37 @@ class DataLoader:
         self._enhanced_incidents_data_path = utils.get_enhanced_incidents_path(self.dataset_id)
         self._enhanced_depots_data_path = utils.get_enhanced_depots_path(self.dataset_id)
 
-    def execute(self) -> None:
+    def execute(self, clean = True, processed = True, enhanced = True) -> None:
         """Run the data loader."""
-        if not os.path.exists(self._clean_incidents_data_path) or not os.path.exists(self._clean_depots_data_path):
+        if not clean and not processed and not enhanced:
+            return
+
+        if clean and not os.path.exists(self._clean_incidents_data_path) or not os.path.exists(self._clean_depots_data_path):
             raise Exception("Missing the cleaned data files.")
-        if not os.path.exists(self._processed_incidents_data_path) or not os.path.exists(self._processed_depots_data_path):
+        if processed and not os.path.exists(self._processed_incidents_data_path) or not os.path.exists(self._processed_depots_data_path):
             raise Exception("Missing the processed data files.")
-        if not os.path.exists(self._enhanced_incidents_data_path) or not os.path.exists(self._enhanced_depots_data_path):
+        if enhanced and not os.path.exists(self._enhanced_incidents_data_path) or not os.path.exists(self._enhanced_depots_data_path):
             raise Exception("Missing the enhanced data files.")
 
-        progress_bar = tqdm(desc="Loading dataset", total=6)
+        progress_bar = tqdm(desc="Loading dataset", total=(clean + processed + enhanced))
 
-        self.cleaned_incidents_df = pd.read_csv(self._clean_incidents_data_path, low_memory=False)
-        progress_bar.update(1)
-        self.cleaned_depots_df = pd.read_csv(self._clean_depots_data_path, low_memory=False)
-        progress_bar.update(1)
+        if clean:
+            self.cleaned_incidents_df = pd.read_csv(self._clean_incidents_data_path, low_memory=False)
+            progress_bar.update(1)
+            self.cleaned_depots_df = pd.read_csv(self._clean_depots_data_path, low_memory=False)
+            progress_bar.update(1)
 
-        self.processed_incidents_df = pd.read_csv(self._processed_incidents_data_path, low_memory=False)
-        progress_bar.update(1)
-        self.processed_depots_df = pd.read_csv(self._processed_depots_data_path, low_memory=False)
-        progress_bar.update(1)
+        if processed:
+            self.processed_incidents_df = pd.read_csv(self._processed_incidents_data_path, low_memory=False)
+            progress_bar.update(1)
+            self.processed_depots_df = pd.read_csv(self._processed_depots_data_path, low_memory=False)
+            progress_bar.update(1)
 
-        self.enhanced_incidents_df = pd.read_csv(self._enhanced_incidents_data_path, low_memory=False)
-        progress_bar.update(1)
-        self.enhanced_depots_df = pd.read_csv(self._enhanced_depots_data_path, low_memory=False)
-        progress_bar.update(1)
+        if enhanced:
+            self.enhanced_incidents_df = pd.read_csv(self._enhanced_incidents_data_path, low_memory=False)
+            progress_bar.update(1)
+            self.enhanced_depots_df = pd.read_csv(self._enhanced_depots_data_path, low_memory=False)
+            progress_bar.update(1)
 
 
 class DataPreprocessor:
