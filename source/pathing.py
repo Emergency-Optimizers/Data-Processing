@@ -4,17 +4,19 @@ import constants
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-import osmnx as ox
-import networkx as nx
+import osmnx
+import networkx
 import os
 import math
 import osmnx.distance
-import matplotlib.pyplot as plt
+import geopandas as gpd
+import shapely.geometry
+import gc
 
 
 class OriginDestination:
     """Class for loading dataset."""
-    def __init__(self, dataset_id: str, graph_central_location: tuple[float, float], grap_distance: int, utm_epsg: str):
+    def __init__(self, dataset_id: str, utm_epsg: str):
         """
         Initialize the OD matrix.
 
@@ -22,29 +24,25 @@ class OriginDestination:
             dataset_id: Unique identifier for the dataset.
         """
         self.dataset_id = dataset_id
-        self.graph_central_location = graph_central_location
-        self.grap_distance = grap_distance
         self.utm_epsg = utm_epsg
+        self.file_path = os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", self.dataset_id, "od_matrix.txt")
 
         df = pd.read_csv(utils.get_enhanced_incidents_path(self.dataset_id), low_memory=False)
         df2 = pd.read_csv(utils.get_enhanced_depots_path(self.dataset_id), low_memory=False)
         grid_ids = pd.concat([df["grid_id"], df2["grid_id"]])
-        self.file_path = os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", self.dataset_id, "od_matrix.txt")
-        
-        self.min_row = df["grid_row"].min()
-        self.min_col = df["grid_col"].min()
-        self.max_row = df["grid_row"].max()
-        self.max_col = df["grid_col"].max()
-        self.matrix: np.ndarray = None
-
-        self.id_to_index: dict = None
-        self.num_ids: int = 0
-
-        self.graph = None
-        self.node_cache = {}
         self.ids = grid_ids.unique()
         self.ids.sort()
+        self.num_ids = len(self.ids)
+        self.totalGridsToProcess = int(((self.num_ids - 1) * self.num_ids) / 2)
+
+        self.matrix: np.ndarray = np.zeros((self.num_ids, self.num_ids), dtype=np.float32)
+
+        self.id_to_index = {id_: index for index, id_ in enumerate(self.ids)}
+
+        self.graph: networkx.MultiDiGraph = None
+        self.node_cache = {}
         self.has_visited = {}
+        self.node_validator = None
 
     def build(self):
         if os.path.exists(self.file_path):
@@ -57,20 +55,23 @@ class OriginDestination:
         #            for row in range(self.min_row, self.max_row + 1)
         #            for col in range(self.min_col, self.max_col + 1)]
 
-        self.id_to_index = {id_: index for index, id_ in enumerate(self.ids)}
+        self.get_graph()
+        self.set_graph_weights()
 
-        self.num_ids = len(self.ids)
-        self.matrix = np.zeros((self.num_ids, self.num_ids), dtype=np.float32)
+        central_depot_grid_id = 22620006649000
+        central_depot_x, central_depot_y = utils.id_to_utm(central_depot_grid_id)
+        self.node_validator = osmnx.distance.nearest_nodes(self.graph, central_depot_x, central_depot_y)
 
-        self.graph = self.get_graph()
+        for grid_id in tqdm(self.ids, desc="Caching nodes"):
+            self.get_node(grid_id)
 
-        totalGridsToProcess = int(((self.num_ids - 1) * self.num_ids) / 2)
+        gc.collect()
 
-        progress_bar = tqdm(desc="Building OD matrix", total=totalGridsToProcess)
-        
+        progress_bar = tqdm(desc="Building OD matrix", total=self.totalGridsToProcess)
+
         for origin_id in self.ids:
             origin_index = self.id_to_index[origin_id]
-            origin_location = utils.id_to_utm(origin_id)
+            origin_node = self.get_node(origin_id)
 
             for destination_id in self.ids:
                 if (origin_id, destination_id) in self.has_visited:
@@ -85,13 +86,10 @@ class OriginDestination:
                     self.matrix[origin_index, destination_index] = 0
                     continue
 
-                destination_location = utils.id_to_utm(destination_id)
-
-                origin_node = self.get_nearest_node(origin_location[0], origin_location[1])
-                destination_node = self.get_nearest_node(destination_location[0], destination_location[1])
+                destination_node = self.get_node(destination_id)
 
                 if origin_node == destination_node:
-                    distance  = math.dist(origin_location, destination_location)
+                    distance  = math.dist(utils.id_to_utm(origin_id), utils.id_to_utm(destination_id))
                     speed_km_per_hr = 50
                     distance_km = distance / 1000
                     time_hr = distance_km / speed_km_per_hr
@@ -100,56 +98,86 @@ class OriginDestination:
                     self.matrix[origin_index, destination_index] = travel_time
                     self.matrix[destination_index, origin_index] = travel_time
 
-                    print(f"\nUSING EUCLIDEAN DISTANCE: {origin_id} -> {destination_id} ({travel_time} seconds)")
-
                     progress_bar.update(1)
                     continue
 
-                try:
-                    shortest_time_path = nx.shortest_path(self.graph, origin_node, destination_node, weight='time')
-                    total_travel_time = sum(self.graph[u][v][0]['time'] for u, v in zip(shortest_time_path[:-1], shortest_time_path[1:])) * 60
-                except nx.NetworkXNoPath:
-                    print(f"\nNO PATH: {origin_node} -> {destination_node} ({origin_id} -> {destination_id})")
-                    total_travel_time = 0
+                shortest_time_path = osmnx.shortest_path(self.graph, origin_node, destination_node, weight='time', cpus=6)
+                total_travel_time = sum(self.graph[u][v][0]['time'] for u, v in zip(shortest_time_path[:-1], shortest_time_path[1:])) * 60
 
-                if total_travel_time != 0:
-                    self.matrix[origin_index, destination_index] = total_travel_time
-                    self.matrix[destination_index, origin_index] = total_travel_time
-                else:
-                    self.matrix[origin_index, destination_index] = np.inf
-                    self.matrix[destination_index, origin_index] = np.inf
+                self.matrix[origin_index, destination_index] = total_travel_time
+                self.matrix[destination_index, origin_index] = total_travel_time
 
                 progress_bar.update(1)
-        
+            break
         self.write()
 
-    def get_nearest_node(self, x, y):
-        node_key = (x, y)
-        if node_key in self.node_cache:
-            return self.node_cache[node_key]
-
-        node = osmnx.distance.nearest_nodes(self.graph, x, y)
-
-        self.node_cache[node_key] = node
-
-        return node
-    
     def write(self):
         with open(self.file_path, "w") as file:
             file.write(','.join(map(str, self.ids)) + '\n')
             for row in self.matrix:
                 file.write(','.join(map(str, row)) + '\n')
-    
+
     def read(self):
         with open(self.file_path, 'r') as file:
             self.ids = list(map(int, file.readline().strip().split(',')))
             matrix = [list(map(float, line.strip().split(','))) for line in file]
         self.matrix = np.array(matrix)
-    
-    def get_graph(self):
-        graph = ox.graph_from_point(self.graph_central_location, dist=self.grap_distance, dist_type="bbox", network_type="drive", simplify=True, retain_all=False)
-        graph = ox.project_graph(graph, to_crs=self.utm_epsg)
 
+    def get_node(self, grid_id):
+        if grid_id in self.node_cache:
+            return self.node_cache[grid_id]
+
+        x, y = utils.id_to_utm(grid_id)
+
+        while True:
+            node = osmnx.distance.nearest_nodes(self.graph, x, y)
+            if networkx.has_path(self.graph, node, self.node_validator) and networkx.has_path(self.graph, self.node_validator, node):
+                self.node_cache[grid_id] = node
+                return node
+            else:
+                self.graph.remove_node(node)
+
+    def get_centroid_max_distance(self):
+        akershus_gdf: gpd.GeoDataFrame = gpd.read_file(os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "ssb_2019_akershus_polygon_epsg4326.geojson"))
+        oslo_gdf: gpd.GeoDataFrame = gpd.read_file(os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "ssb_2019_oslo_polygon_epsg4326.geojson"))
+
+        akershus_gdf['dissolve_field'] = 'Region'
+        oslo_gdf['dissolve_field'] = 'Region'
+        combined_gdf: gpd.GeoDataFrame = pd.concat([akershus_gdf, oslo_gdf], ignore_index=True)
+        gdf: gpd.GeoDataFrame = combined_gdf.dissolve(by='dissolve_field')
+
+        gdf = gdf.to_crs(epsg=32633)
+        centroid: shapely.geometry.Point = gdf.geometry.centroid.iloc[0]
+
+        lon, lat = utils.utm_to_geographic(centroid.x, centroid.y)
+
+        max_distance = gdf.geometry.bounds.apply(
+            lambda row: max(
+                centroid.distance(shapely.geometry.Point(row['minx'], row['miny'])),
+                centroid.distance(shapely.geometry.Point(row['minx'], row['maxy'])),
+                centroid.distance(shapely.geometry.Point(row['maxx'], row['miny'])),
+                centroid.distance(shapely.geometry.Point(row['maxx'], row['maxy']))
+            ),
+            axis=1
+        ).max()
+
+        return (lat, lon), max_distance
+
+    def get_graph(self):
+        centroid, distance = self.get_centroid_max_distance()
+
+        self.graph = osmnx.graph_from_point(
+            centroid,
+            distance,
+            dist_type="bbox",
+            network_type="drive",
+            simplify=True,
+            retain_all=False,
+            truncate_by_edge=False
+        )
+        self.graph = osmnx.project_graph(self.graph, to_crs=self.utm_epsg)
+
+    def set_graph_weights(self):
         speeds_normal = {
             30: 26.9,
             40: 45.4,
@@ -164,30 +192,21 @@ class OriginDestination:
         }
         INTERSECTION_PENALTY = 10
 
-        # Adjust the weights of the edges in the graph based on the average speeds and intersection penalty
-        for u, v, data in graph.edges(data=True):
-            # Use average speeds if available
+        for u, v, data in self.graph.edges(data=True):
             if "maxspeed" in data and data["maxspeed"] != "NO:urban":
-                # Take the min of the maxspeed list (in case it's a list)
                 if isinstance(data["maxspeed"], list):
                     speed_limits = [speeds_normal.get(int(s), int(s)) for s in data["maxspeed"]]
                     speed_limit = sum(speed_limits) / len(speed_limits)
                 else:
                     speed_limit = speeds_normal.get(int(data["maxspeed"]), int(data["maxspeed"]))
-                
-                # Use average speed if available, else use speed limit
+
                 avg_speed = speed_limit * 0.65
             else:
-                avg_speed = 50  # Default speed if not provided
-            
-            # Calculate time = distance/speed and assign it as the new weight
-            # Speeds are in km/h, so converting them to m/min
+                avg_speed = 50
+
             data["time"] = data["length"] / (avg_speed * 1000/60)
 
-            # Add intersection penalty if the road segment has an intersection
-            if "junction" in graph.nodes[u] or "highway" in graph.nodes[u] and graph.nodes[u]["highway"] == "traffic_signals":
+            if "junction" in self.graph.nodes[u] or "highway" in self.graph.nodes[u] and self.graph.nodes[u]["highway"] == "traffic_signals":
                 data["time"] += INTERSECTION_PENALTY / 60
-            if "junction" in graph.nodes[v] or "highway" in graph.nodes[v] and graph.nodes[v]["highway"] == "traffic_signals":
+            if "junction" in self.graph.nodes[v] or "highway" in self.graph.nodes[v] and self.graph.nodes[v]["highway"] == "traffic_signals":
                 data["time"] += INTERSECTION_PENALTY / 60
-
-        return graph

@@ -141,9 +141,11 @@ class DataPreprocessorOUS(DataPreprocessor):
                 output_file.write(line)
 
     def _clean_and_save_incidents(self) -> None:
-        df_incidents = pd.read_csv(self._clean_incidents_data_path, usecols=range(32), escapechar="\\", low_memory=False)
+        df_incidents = pd.read_csv(self._clean_incidents_data_path, escapechar="\\", low_memory=False)
+        # split geometry
+        df_incidents[['real_x', 'real_y']] = df_incidents['geometry'].str.replace('c\(|\)', '', regex=True).str.split(', ', expand=True)
         # drop unnecessary columns
-        columns_to_drop = ["utrykningstid", "responstid"]
+        columns_to_drop = ["utrykningstid", "responstid", "geometry"]
         df_incidents.drop(columns_to_drop, axis=1, inplace=True)
         # drop the few rows with errors in triage code
         df_incidents = df_incidents[df_incidents["hastegrad"] != "V"]
