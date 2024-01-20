@@ -817,14 +817,14 @@ class DataLoader:
         if not clean and not processed and not enhanced:
             return
 
-        if clean and not os.path.exists(self.data_preprocessor._clean_incidents_data_path) or not os.path.exists(self.data_preprocessor._clean_depots_data_path):
+        if clean and (not os.path.exists(self.data_preprocessor._clean_incidents_data_path) or not os.path.exists(self.data_preprocessor._clean_depots_data_path)):
             raise Exception("Missing the cleaned data files.")
-        if processed and not os.path.exists(self.data_preprocessor._processed_incidents_data_path) or not os.path.exists(self.data_preprocessor._processed_depots_data_path):
+        if processed and (not os.path.exists(self.data_preprocessor._processed_incidents_data_path) or not os.path.exists(self.data_preprocessor._processed_depots_data_path)):
             raise Exception("Missing the processed data files.")
-        if enhanced and not os.path.exists(self.data_preprocessor._enhanced_incidents_data_path) or not os.path.exists(self.data_preprocessor._enhanced_depots_data_path):
+        if enhanced and (not os.path.exists(self.data_preprocessor._enhanced_incidents_data_path) or not os.path.exists(self.data_preprocessor._enhanced_depots_data_path)):
             raise Exception("Missing the enhanced data files.")
 
-        progress_bar = tqdm(desc="Loading dataset", total=(clean + processed + enhanced))
+        progress_bar = tqdm(desc="Loading dataset", total=(clean + processed + enhanced) * 2)
 
         if clean:
             self.cleaned_incidents_df = self.data_preprocessor.load_clean_incidents_dataframe()
