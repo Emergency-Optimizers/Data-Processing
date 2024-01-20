@@ -11,66 +11,6 @@ import geopandas as gpd
 import shapely.geometry
 
 
-class DataLoader:
-    """Class for loading dataset."""
-
-    def __init__(self, dataset_id: str) -> None:
-        """
-        Initialize the data loader.
-
-        Args:
-            dataset_id: Unique identifier for the dataset.
-        """
-        self.dataset_id = dataset_id
-        self.cleaned_incidents_df: pd.DataFrame = None
-        self.cleaned_depots_df: pd.DataFrame = None
-        self.processed_incidents_df: pd.DataFrame = None
-        self.processed_depots_df: pd.DataFrame = None
-        self.enhanced_incidents_df: pd.DataFrame = None
-        self.enhanced_depots_df: pd.DataFrame = None
-        # paths for cleaned data
-        self._clean_incidents_data_path = utils.get_clean_incidents_path(self.dataset_id)
-        self._clean_depots_data_path = utils.get_clean_depots_path(self.dataset_id)
-        # paths for processed data
-        self._processed_incidents_data_path = utils.get_processed_incidents_path(self.dataset_id)
-        self._processed_depots_data_path = utils.get_processed_depots_path(self.dataset_id)
-        # paths for enhanced data
-        self._enhanced_incidents_data_path = utils.get_enhanced_incidents_path(self.dataset_id)
-        self._enhanced_depots_data_path = utils.get_enhanced_depots_path(self.dataset_id)
-
-    def execute(self, clean = True, processed = True, enhanced = True) -> None:
-        """Run the data loader."""
-        if not clean and not processed and not enhanced:
-            return
-
-        if clean and not os.path.exists(self._clean_incidents_data_path) or not os.path.exists(self._clean_depots_data_path):
-            raise Exception("Missing the cleaned data files.")
-        if processed and not os.path.exists(self._processed_incidents_data_path) or not os.path.exists(self._processed_depots_data_path):
-            raise Exception("Missing the processed data files.")
-        if enhanced and not os.path.exists(self._enhanced_incidents_data_path) or not os.path.exists(self._enhanced_depots_data_path):
-            raise Exception("Missing the enhanced data files.")
-
-        progress_bar = tqdm(desc="Loading dataset", total=(clean + processed + enhanced))
-
-        if clean:
-            self.cleaned_incidents_df = pd.read_csv(self._clean_incidents_data_path, low_memory=False)
-            progress_bar.update(1)
-            self.cleaned_depots_df = pd.read_csv(self._clean_depots_data_path, low_memory=False)
-            progress_bar.update(1)
-
-        if processed:
-            self.processed_incidents_df = pd.read_csv(self._processed_incidents_data_path, low_memory=False)
-            progress_bar.update(1)
-            self.processed_depots_df = pd.read_csv(self._processed_depots_data_path, low_memory=False)
-            progress_bar.update(1)
-
-        if enhanced:
-            self.enhanced_incidents_df = pd.read_csv(self._enhanced_incidents_data_path, low_memory=False)
-            progress_bar.update(1)
-            self.enhanced_depots_df = pd.read_csv(self._enhanced_depots_data_path, low_memory=False)
-            progress_bar.update(1)
-
-
 class DataPreprocessor:
     """Abstract class for preprocessing datasets."""
 
@@ -164,6 +104,27 @@ class DataPreprocessor:
     def _enhance_depots(self) -> None:
         pass
 
+    def save_dataframe(self, dataframe: pd.DataFrame, filepath: str):
+        dataframe.to_csv(filepath, index=False)
+    
+    def load_clean_incidents_dataframe(self) -> pd.DataFrame:
+        return pd.read_csv(self._clean_incidents_data_path, low_memory=False)
+    
+    def load_clean_depots_dataframe(self) -> pd.DataFrame:
+        return pd.read_csv(self._clean_depots_data_path, low_memory=False)
+    
+    def load_processed_incidents_dataframe(self) -> pd.DataFrame:
+        return pd.read_csv(self._processed_incidents_data_path, low_memory=False)
+    
+    def load_processed_depots_dataframe(self) -> pd.DataFrame:
+        return pd.read_csv(self._processed_depots_data_path, low_memory=False)
+    
+    def load_enhanced_incidents_dataframe(self) -> pd.DataFrame:
+        return pd.read_csv(self._enhanced_incidents_data_path, low_memory=False)
+    
+    def load_enhanced_depots_dataframe(self) -> pd.DataFrame:
+        return pd.read_csv(self._enhanced_depots_data_path, low_memory=False)
+
 
 class DataPreprocessorOUS_V2(DataPreprocessor):
     """Class for preprocessing the OUS dataset. Version 2.0"""
@@ -172,8 +133,6 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         super().__init__(dataset_id="oslo")
     
     def _clean_incidents(self) -> None:
-        super()._clean_incidents()
-
         self.fix_csv_errors()
         dataframe = pd.read_csv(self._clean_incidents_data_path, escapechar="\\", low_memory=False)
         dataframe = self.split_geometry(dataframe)
@@ -281,21 +240,17 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         return dataframe
     
     def _clean_depots(self) -> None:
-        super()._clean_depots()
-
         dataframe = pd.read_csv(self._raw_depots_data_path)
         self.save_dataframe(dataframe, self._clean_depots_data_path)
     
     def _process_incidents(self) -> None:
-        super()._process_incidents()
-
         dataframe = self.initialize_processed_incidents_dataframe()
         dataframe = self.add_geo_data(dataframe)
 
         self.save_dataframe(dataframe, self._processed_incidents_data_path)
     
     def initialize_processed_incidents_dataframe(self) -> pd.DataFrame:
-        dataframe_clean = self.load_clean_incident_dataframe()
+        dataframe_clean = self.load_clean_incidents_dataframe()
 
         dataframe = pd.DataFrame()
         dataframe["id"] = dataframe_clean["id"]
@@ -321,8 +276,6 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         return dataframe
     
     def _process_depots(self) -> None:
-        super()._process_depots()
-
         dataframe = self.initialize_processed_depots_dataframe()
         dataframe = self.convert_depot_types(dataframe)
         dataframe = self.add_grid_id(dataframe)
@@ -440,15 +393,12 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         return dataframe
     
     def _enhance_incidents(self) -> None:
-        super()._enhance_incidents()
+        pass
     
     def _enhance_depots(self) -> None:
-        super()._enhance_depots()
+        pass
     
-    def save_dataframe(self, dataframe: pd.DataFrame, filepath: str):
-        dataframe.to_csv(filepath, index=False)
-    
-    def load_clean_incident_dataframe(self) -> pd.DataFrame:
+    def load_clean_incidents_dataframe(self) -> pd.DataFrame:
         column_types = {
             "id": "int64",
             "hastegrad": "object",
@@ -474,7 +424,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         )
 
         return dataframe
-
+    
     def load_clean_depots_dataframe(self) -> pd.DataFrame:
         column_types = {
             "type": "object",
@@ -490,7 +440,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
         return dataframe
     
-    def load_processed_incident_dataframe(self) -> pd.DataFrame:
+    def load_processed_incidents_dataframe(self) -> pd.DataFrame:
         column_types = {
             "id": "int64",
             "triage_impression_during_call": "object",
@@ -536,6 +486,12 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         )
 
         return dataframe
+    
+    def load_enhanced_incidents_dataframe(self) -> pd.DataFrame:
+        pass
+    
+    def load_enhanced_depots_dataframe(self) -> pd.DataFrame:
+        pass
 
 
 class DataPreprocessorOUS(DataPreprocessor):
@@ -545,14 +501,10 @@ class DataPreprocessorOUS(DataPreprocessor):
         super().__init__(dataset_id="oslo")
 
     def _clean_incidents(self) -> None:
-        super()._clean_incidents()
-
         self._fix_csv()
         self._clean_and_save_incidents()
 
     def _clean_depots(self) -> None:
-        super()._clean_depots()
-
         df_depots = pd.read_csv(self._raw_depots_data_path)
         df_depots.to_csv(self._clean_depots_data_path, index=False)
 
@@ -599,8 +551,6 @@ class DataPreprocessorOUS(DataPreprocessor):
         return not pattern.match(date_string)
 
     def _process_incidents(self) -> None:
-        super()._process_incidents()
-
         # load cleaned dataset
         df_incidents_clean = pd.read_csv(self._clean_incidents_data_path, low_memory=False)
         # create columns
@@ -749,8 +699,6 @@ class DataPreprocessorOUS(DataPreprocessor):
         df_incidents.to_csv(self._processed_incidents_data_path, index=False)
 
     def _process_depots(self) -> None:
-        super()._process_depots()
-
         # load cleaned dataset
         df_depots_clean = pd.read_csv(self._clean_depots_data_path)
         # create columns
@@ -823,8 +771,6 @@ class DataPreprocessorOUS(DataPreprocessor):
         return df
 
     def _enhance_incidents(self) -> None:
-        super()._enhance_incidents()
-
         # load processed dataset
         df_incidents = pd.read_csv(self._processed_incidents_data_path, low_memory=False)
         # drop rows with NaN values
@@ -848,10 +794,55 @@ class DataPreprocessorOUS(DataPreprocessor):
         df_incidents.to_csv(self._enhanced_incidents_data_path, index=False)
 
     def _enhance_depots(self) -> None:
-        super()._enhance_depots()
-
         df_depots = pd.read_csv(self._processed_depots_data_path)
         df_depots.to_csv(self._enhanced_depots_data_path, index=False)
+
+
+class DataLoader:
+    """Class for loading dataset."""
+
+    def __init__(self, data_preprocessor: DataPreprocessor = DataPreprocessorOUS) -> None:
+        """Initialize the data loader."""
+        self.data_preprocessor: DataPreprocessor = data_preprocessor()
+
+        self.clean_incidents_df: pd.DataFrame = None
+        self.clean_depots_df: pd.DataFrame = None
+        self.processed_incidents_df: pd.DataFrame = None
+        self.processed_depots_df: pd.DataFrame = None
+        self.enhanced_incidents_df: pd.DataFrame = None
+        self.enhanced_depots_df: pd.DataFrame = None
+
+    def execute(self, clean = True, processed = True, enhanced = True) -> None:
+        """Run the data loader."""
+        if not clean and not processed and not enhanced:
+            return
+
+        if clean and not os.path.exists(self.data_preprocessor._clean_incidents_data_path) or not os.path.exists(self.data_preprocessor._clean_depots_data_path):
+            raise Exception("Missing the cleaned data files.")
+        if processed and not os.path.exists(self.data_preprocessor._processed_incidents_data_path) or not os.path.exists(self.data_preprocessor._processed_depots_data_path):
+            raise Exception("Missing the processed data files.")
+        if enhanced and not os.path.exists(self.data_preprocessor._enhanced_incidents_data_path) or not os.path.exists(self.data_preprocessor._enhanced_depots_data_path):
+            raise Exception("Missing the enhanced data files.")
+
+        progress_bar = tqdm(desc="Loading dataset", total=(clean + processed + enhanced))
+
+        if clean:
+            self.cleaned_incidents_df = self.data_preprocessor.load_clean_incidents_dataframe()
+            progress_bar.update(1)
+            self.cleaned_depots_df = self.data_preprocessor.load_clean_depots_dataframe()
+            progress_bar.update(1)
+
+        if processed:
+            self.processed_incidents_df = self.data_preprocessor.load_processed_incidents_dataframe()
+            progress_bar.update(1)
+            self.processed_depots_df = self.data_preprocessor.load_processed_depots_dataframe()
+            progress_bar.update(1)
+
+        if enhanced:
+            self.enhanced_incidents_df = self.data_preprocessor.load_enhanced_incidents_dataframe()
+            progress_bar.update(1)
+            self.enhanced_depots_df = self.data_preprocessor.load_enhanced_depots_dataframe()
+            progress_bar.update(1)
 
 
 def fix_timeframes(df_incidents: pd.DataFrame) -> pd.DataFrame:
