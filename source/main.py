@@ -4,7 +4,7 @@ import pathing
 
 def main():
     """Main program."""
-    #data_preprocessor = datahandler.DataPreprocessorOUS(dataset_id="oslo")
+    #data_preprocessor = datahandler.DataPreprocessorOUS()
     #data_preprocessor.execute()
 
     od = pathing.OriginDestination(

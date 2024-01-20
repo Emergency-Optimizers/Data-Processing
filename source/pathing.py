@@ -35,6 +35,11 @@ class OriginDestination:
         self.num_ids = len(self.ids)
         self.totalGridsToProcess = int(((self.num_ids - 1) * self.num_ids) / 2)
 
+        self.boundry_north = df["latitude"].max()
+        self.boundry_south = df["latitude"].min()
+        self.boundry_east = df["longitude"].max()
+        self.boundry_west = df["longitude"].min()
+
         self.matrix: np.ndarray = np.zeros((self.num_ids, self.num_ids), dtype=np.float32)
 
         self.id_to_index = {id_: index for index, id_ in enumerate(self.ids)}
@@ -114,7 +119,7 @@ class OriginDestination:
                 origin_nodes,
                 destination_nodes,
                 weight='time',
-                cpus=6
+                cpus=10
             )
 
             for i, shortest_time_path in enumerate(shortest_time_paths):
@@ -179,7 +184,7 @@ class OriginDestination:
         return (lat, lon), max_distance
 
     def get_graph(self):
-        centroid, distance = self.get_centroid_max_distance()
+        """centroid, distance = self.get_centroid_max_distance()
 
         self.graph = osmnx.graph_from_point(
             centroid,
@@ -189,7 +194,19 @@ class OriginDestination:
             simplify=True,
             retain_all=False,
             truncate_by_edge=False
+        )"""
+
+        self.graph = osmnx.graph_from_bbox(
+            north=self.boundry_north,
+            south=self.boundry_south,
+            east=self.boundry_east,
+            west=self.boundry_west,
+            network_type="drive",
+            simplify=True,
+            retain_all=False,
+            truncate_by_edge=False
         )
+
         self.graph = osmnx.project_graph(self.graph, to_crs=self.utm_epsg)
 
     def set_graph_weights(self):
