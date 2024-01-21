@@ -147,7 +147,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             open(self._clean_incidents_data_path, "w", encoding="utf-8") as target_file:
             
             # fix empty header
-            header = source_file.readline().replace('""', '"id"')
+            header = source_file.readline().replace('""', '"index"')
             target_file.write(header)
             
             # fix comma errors in the data lines
@@ -178,6 +178,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
     def drop_unnecessary_raw_columns(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         columns_to_drop = [
+            "index",
             "utrykningstid",
             "responstid",
             "gml_id",
@@ -198,7 +199,6 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
     def fix_raw_types(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         headers_types = {
-            "id": "int64",
             "hastegrad": "object",
             "tidspunkt": "object",
             "tiltak_opprettet": "object",
@@ -253,8 +253,9 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe_clean = self.load_clean_incidents_dataframe()
 
         dataframe = pd.DataFrame()
-        dataframe["id"] = dataframe_clean["id"]
         dataframe["triage_impression_during_call"] = dataframe_clean["hastegrad"]
+        dataframe["resource_id"] = dataframe_clean["ressurs_id"]
+        dataframe["resource_type"] = dataframe_clean["tiltak_type"]
         dataframe["time_call_received"] = dataframe_clean["tidspunkt"]
         dataframe["time_call_processed"] = dataframe_clean["tiltak_opprettet"]
         dataframe["time_ambulance_notified"] = dataframe_clean["varslet"]
@@ -395,12 +396,23 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
     def _enhance_incidents(self) -> None:
         pass
     
+    def _remove_incomplete_years(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        dataframe["year"] = dataframe["time_call_received"].dt.year
+        dataframe = dataframe[(dataframe['year'] >= 2016) & (dataframe['year'] <= 2018)]
+        dataframe = dataframe.drop(columns=["year"])
+
+        return dataframe
+
+    def _remove_duplicates(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        dataframe.drop_duplicates(inplace=True)
+
+        return dataframe
+
     def _enhance_depots(self) -> None:
         pass
     
     def load_clean_incidents_dataframe(self) -> pd.DataFrame:
         column_types = {
-            "id": "int64",
             "hastegrad": "object",
             "ressurs_id": "object",
             "tiltak_type": "object",
@@ -414,7 +426,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "geometry_x": "int64",
             "geometry_y": "int64"
         }
-        column_index_dates = [2, 3, 6, 7, 8, 9, 10, 11]
+        column_index_dates = [1, 2, 5, 6, 7, 8, 9, 10]
 
         dataframe = pd.read_csv(
             self._clean_incidents_data_path,
@@ -442,8 +454,9 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
     
     def load_processed_incidents_dataframe(self) -> pd.DataFrame:
         column_types = {
-            "id": "int64",
             "triage_impression_during_call": "object",
+            "resource_id": "object",
+            "resource_type": "object",
             "grid_id": "int64",
             "x": "int64",
             "y": "int64",
@@ -454,7 +467,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "region": "object",
             "urban_settlement": "bool"
         }
-        column_index_dates = [2, 3, 4, 5, 6, 7, 8, 9]
+        column_index_dates = [3, 4, 5, 6, 7, 8, 9, 10]
 
         dataframe = pd.read_csv(
             self._processed_incidents_data_path,
