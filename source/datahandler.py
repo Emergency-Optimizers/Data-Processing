@@ -392,10 +392,16 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             dataframe.at[index, "urban_settlement"] = urban_settlement
         
         return dataframe
-    
+
     def _enhance_incidents(self) -> None:
-        pass
-    
+        dataframe = self.load_processed_incidents_dataframe()
+
+        dataframe = self._remove_duplicates(dataframe)
+        dataframe = self._remove_incomplete_years(dataframe)
+        dataframe = self._remove_outside_region(dataframe)
+
+        self.save_dataframe(dataframe, self._enhanced_incidents_data_path)
+
     def _remove_incomplete_years(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         dataframe["year"] = dataframe["time_call_received"].dt.year
         dataframe = dataframe[(dataframe['year'] >= 2016) & (dataframe['year'] <= 2018)]
@@ -408,9 +414,16 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
         return dataframe
 
+    def _remove_outside_region(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        dataframe = dataframe.dropna(subset=["region"])
+
+        return dataframe
+
     def _enhance_depots(self) -> None:
-        pass
-    
+        dataframe = self.load_processed_depots_dataframe()
+
+        self.save_dataframe(dataframe, self._enhanced_depots_data_path)
+
     def load_clean_incidents_dataframe(self) -> pd.DataFrame:
         column_types = {
             "hastegrad": "object",
@@ -501,10 +514,52 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         return dataframe
     
     def load_enhanced_incidents_dataframe(self) -> pd.DataFrame:
-        pass
+        column_types = {
+            "triage_impression_during_call": "object",
+            "resource_id": "object",
+            "resource_type": "object",
+            "grid_id": "int64",
+            "x": "int64",
+            "y": "int64",
+            "x_accurate": "int64",
+            "y_accurate": "int64",
+            "longitude": "float64",
+            "latitude": "float64",
+            "region": "object",
+            "urban_settlement": "bool"
+        }
+        column_index_dates = [3, 4, 5, 6, 7, 8, 9, 10]
+
+        dataframe = pd.read_csv(
+            self._enhanced_incidents_data_path,
+            dtype=column_types,
+            na_values=[""],
+            parse_dates=column_index_dates
+        )
+
+        return dataframe
     
     def load_enhanced_depots_dataframe(self) -> pd.DataFrame:
-        pass
+        column_types = {
+            "type": "object",
+            "grid_id": "int64",
+            "x": "int64",
+            "y": "int64",
+            "x_accurate": "int64",
+            "y_accurate": "int64",
+            "longitude": "float64",
+            "latitude": "float64",
+            "region": "object",
+            "urban_settlement": "bool"
+        }
+
+        dataframe = pd.read_csv(
+            self._enhanced_depots_data_path,
+            dtype=column_types,
+            na_values=[""]
+        )
+
+        return dataframe
 
 
 class DataPreprocessorOUS(DataPreprocessor):
