@@ -150,7 +150,7 @@ class OriginDestination:
         x, y = utils.id_to_utm(grid_id)
 
         while True:
-            node = osmnx.distance.nearest_nodes(self.graph, x, y)
+            node = osmnx.distance.nearest_nodes(self.graph, x + 500, y + 500)
             if networkx.has_path(self.graph, node, self.node_validator) and networkx.has_path(self.graph, self.node_validator, node):
                 self.node_cache[grid_id] = node
                 return node
