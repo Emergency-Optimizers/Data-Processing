@@ -135,7 +135,6 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
     def _clean_incidents(self) -> None:
         self.fix_csv_errors()
         dataframe = pd.read_csv(self._clean_incidents_data_path, escapechar="\\", low_memory=False)
-        dataframe = self.split_geometry(dataframe)
         dataframe = self.drop_unnecessary_raw_columns(dataframe)
         dataframe = self.fix_raw_types(dataframe)
 
@@ -156,25 +155,6 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
                     line = regex.sub(r"\([^,()]+\K,", "\\,", line)
 
                 target_file.write(line)
-    
-    def split_geometry(self, dataframe: pd.DataFrame) -> pd.DataFrame:
-        """
-        Splits the 'geometry' column of the DataFrame into two separate columns.
-
-        Args:
-            dataframe (pd.DataFrame): The DataFrame containing the 'geometry' column.
-
-        Returns:
-            pd.DataFrame: The DataFrame with the 'geometry' column split into 'geometry_x' and 'geometry_y'.
-        """
-        # splitting the 'geometry' column into two new columns
-        geometry_split = dataframe["geometry"].str.replace("c\(|\)", "", regex=True).str.split(", ", expand=True)
-        dataframe[["geometry_x", "geometry_y"]] = geometry_split
-
-        # drop the problematic column
-        dataframe.drop(["geometry"], axis=1, inplace=True)
-
-        return dataframe
 
     def drop_unnecessary_raw_columns(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         columns_to_drop = [
@@ -191,7 +171,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "rsize",
             "col",
             "row",
-            "statistikkÅr"
+            "statistikkÅr",
+            "geometry"
         ]
         dataframe.drop(columns_to_drop, axis=1, inplace=True)
 
@@ -217,8 +198,6 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "popAve": "float64",
             "popFem": "int64",
             "popMal": "int64",
-            "geometry_x": "int64",
-            "geometry_y": "int64"
         }
         
         dataframe = dataframe.astype(headers_types)
@@ -246,6 +225,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
     def _process_incidents(self) -> None:
         dataframe = self.initialize_processed_incidents_dataframe()
         dataframe = self.add_geo_data(dataframe)
+        dataframe = self._count_resources_sent(dataframe)
 
         self.save_dataframe(dataframe, self._processed_incidents_data_path)
     
@@ -256,6 +236,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe["triage_impression_during_call"] = dataframe_clean["hastegrad"]
         dataframe["resource_id"] = dataframe_clean["ressurs_id"]
         dataframe["resource_type"] = dataframe_clean["tiltak_type"]
+        dataframe["resources_sent"] = 0
         dataframe["time_call_received"] = dataframe_clean["tidspunkt"]
         dataframe["time_call_processed"] = dataframe_clean["tiltak_opprettet"]
         dataframe["time_ambulance_notified"] = dataframe_clean["varslet"]
@@ -267,12 +248,12 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe["grid_id"] = dataframe_clean["ssbid1000M"]
         dataframe["x"] = dataframe_clean["xcoor"]
         dataframe["y"] = dataframe_clean["ycoor"]
-        dataframe["x_accurate"] = dataframe_clean["geometry_x"]
-        dataframe["y_accurate"] = dataframe_clean["geometry_y"]
         dataframe["longitude"] = np.nan
         dataframe["latitude"] = np.nan
         dataframe["region"] = None
         dataframe["urban_settlement"] = False
+
+        dataframe = dataframe.sort_values(by="time_call_received")
 
         return dataframe
     
@@ -290,10 +271,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe = pd.DataFrame()
         dataframe["type"] = dataframe_clean["type"]
         dataframe["grid_id"] = 0
-        dataframe["x"] = 0
-        dataframe["y"] = 0
-        dataframe["x_accurate"] = dataframe_clean["easting"]
-        dataframe["y_accurate"] = dataframe_clean["northing"]
+        dataframe["x"] = dataframe_clean["easting"]
+        dataframe["y"] = dataframe_clean["northing"]
         dataframe["longitude"] = np.nan
         dataframe["latitude"] = np.nan
         dataframe["region"] = None
@@ -319,8 +298,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
     
     def add_grid_id(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         for index, _ in dataframe.iterrows():
-            x_accurate = dataframe.at[index, "x_accurate"]
-            y_accurate = dataframe.at[index, "y_accurate"]
+            x_accurate = dataframe.at[index, "x"]
+            y_accurate = dataframe.at[index, "y"]
 
             grid_id = utils.utm_to_id(x_accurate, y_accurate)
             x, y = utils.id_to_utm(grid_id)
@@ -399,8 +378,49 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe = self._remove_duplicates(dataframe)
         dataframe = self._remove_incomplete_years(dataframe)
         dataframe = self._remove_outside_region(dataframe)
+        dataframe = self._remove_other_resource_types(dataframe)
+        dataframe = self._count_resources_sent(dataframe)
+        dataframe = self._remove_extra_resources(dataframe)
+
+        dataframe = dataframe.sort_values(by="time_call_received")
 
         self.save_dataframe(dataframe, self._enhanced_incidents_data_path)
+    
+    def _remove_other_resource_types(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        dataframe = dataframe[dataframe["resource_type"] == "Ambulanse"]
+
+        return dataframe
+
+    def _count_resources_sent(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        unique_counts = dataframe.groupby(["time_call_received", "grid_id"])["resource_id"].nunique()
+
+        dataframe["resources_sent"] = dataframe.set_index(["time_call_received", "grid_id"]).index.map(unique_counts)
+
+        return dataframe
+    
+    def _remove_extra_resources(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        # columns to consider for counting NaNs
+        time_columns = [
+            "time_call_processed",
+            "time_ambulance_notified",
+            "time_dispatch",
+            "time_arrival_scene",
+            "time_departure_scene",
+            "time_arrival_hospital",
+            "time_available"
+        ]
+
+        # cort by the number of NaNs in time columns (ascending) and then by 'time_call_received' and 'grid_id'
+        dataframe = dataframe.sort_values(
+            by=time_columns + ["time_call_received", "grid_id"], 
+            ascending=[True] * len(time_columns) + [True, True], 
+            na_position="last"
+        )
+
+        # drop duplicates, keeping the first occurrence (which has fewer NaNs)
+        dataframe = dataframe.drop_duplicates(subset=["time_call_received", "grid_id"], keep="first")
+
+        return dataframe
 
     def _remove_incomplete_years(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         dataframe["year"] = dataframe["time_call_received"].dt.year
@@ -470,17 +490,16 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "triage_impression_during_call": "object",
             "resource_id": "object",
             "resource_type": "object",
+            "resources_sent": "int64",
             "grid_id": "int64",
             "x": "int64",
             "y": "int64",
-            "x_accurate": "int64",
-            "y_accurate": "int64",
             "longitude": "float64",
             "latitude": "float64",
             "region": "object",
             "urban_settlement": "bool"
         }
-        column_index_dates = [3, 4, 5, 6, 7, 8, 9, 10]
+        column_index_dates = [4, 5, 6, 7, 8, 9, 10, 11]
 
         dataframe = pd.read_csv(
             self._processed_incidents_data_path,
@@ -497,8 +516,6 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "grid_id": "int64",
             "x": "int64",
             "y": "int64",
-            "x_accurate": "int64",
-            "y_accurate": "int64",
             "longitude": "float64",
             "latitude": "float64",
             "region": "object",
@@ -518,17 +535,16 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "triage_impression_during_call": "object",
             "resource_id": "object",
             "resource_type": "object",
+            "resources_sent": "int64",
             "grid_id": "int64",
             "x": "int64",
             "y": "int64",
-            "x_accurate": "int64",
-            "y_accurate": "int64",
             "longitude": "float64",
             "latitude": "float64",
             "region": "object",
             "urban_settlement": "bool"
         }
-        column_index_dates = [3, 4, 5, 6, 7, 8, 9, 10]
+        column_index_dates = [4, 5, 6, 7, 8, 9, 10, 11]
 
         dataframe = pd.read_csv(
             self._enhanced_incidents_data_path,
@@ -545,8 +561,6 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "grid_id": "int64",
             "x": "int64",
             "y": "int64",
-            "x_accurate": "int64",
-            "y_accurate": "int64",
             "longitude": "float64",
             "latitude": "float64",
             "region": "object",
