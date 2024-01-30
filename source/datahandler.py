@@ -381,6 +381,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe = self._remove_other_resource_types(dataframe)
         dataframe = self._count_resources_sent(dataframe)
         dataframe = self._remove_extra_resources(dataframe)
+        dataframe = self._remove_other_triage_impressions(dataframe)
+        dataframe = self._remove_wrong_timestamps(dataframe)
 
         dataframe = dataframe.sort_values(by="time_call_received")
 
@@ -438,6 +440,32 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe = dataframe.dropna(subset=["region"])
 
         return dataframe
+    
+    def _remove_other_triage_impressions(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        dataframe = dataframe[(dataframe["triage_impression_during_call"] != "V2") & (dataframe["triage_impression_during_call"] != "V")]
+
+        return dataframe
+
+    def _remove_wrong_timestamps(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        datetime_columns = [
+            "time_call_received", "time_call_processed", "time_ambulance_notified",
+            "time_dispatch", "time_arrival_scene", "time_departure_scene",
+            "time_arrival_hospital", "time_available"
+        ]
+
+        # Start with all rows marked as valid
+        valid_rows = pd.Series([True] * len(dataframe), index=dataframe.index)
+
+        # Iterate over the datetime column pairs, except the first pair
+        for i in range(1, len(datetime_columns) - 1):
+            first_col = datetime_columns[i]
+            second_col = datetime_columns[i + 1]
+
+            # Mark rows as invalid where the first date is after the second date
+            valid_rows &= ~(dataframe[first_col] > dataframe[second_col])
+
+        # Return a new dataframe excluding the rows with incorrect timestamps
+        return dataframe[valid_rows]
 
     def _enhance_depots(self) -> None:
         dataframe = self.load_processed_depots_dataframe()
