@@ -7,8 +7,7 @@ from tqdm import tqdm
 import osmnx as ox
 import networkx as nx
 import os
-import geopandas as gpd
-import shapely.geometry
+import math
 import osmnx.distance
 
 
@@ -27,13 +26,14 @@ class OriginDestination:
         self.utm_epsg = utm_epsg
 
         df = pd.read_csv(utils.get_enhanced_incidents_path(self.dataset_id), low_memory=False)
+        df2 = pd.read_csv(utils.get_enhanced_depots_path(self.dataset_id), low_memory=False)
+        grid_ids = pd.concat([df["grid_id"], df2["grid_id"]])
         self.file_path = os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", self.dataset_id, "od_matrix.txt")
         
         self.min_row = df["grid_row"].min()
         self.min_col = df["grid_col"].min()
         self.max_row = df["grid_row"].max()
         self.max_col = df["grid_col"].max()
-        self.ids = None
         self.matrix: np.ndarray = None
 
         self.id_to_index: dict = None
@@ -41,7 +41,7 @@ class OriginDestination:
 
         self.graph = None
         self.node_cache = {}
-        self.ids = df["grid_id"].unique()
+        self.ids = grid_ids.unique()
         self.has_visited = {}
 
     def build(self):
@@ -62,7 +62,11 @@ class OriginDestination:
 
         self.graph = self.get_graph()
 
-        for origin_id in tqdm(self.ids, desc="Building OD matrix"):
+        totalGridsToProcess = int(((self.ids.size - 1) * self.ids.size) / 2)
+
+        progress_bar = tqdm(desc="Building OD matrix", total=totalGridsToProcess)
+
+        for origin_id in self.ids:
             origin_index = self.id_to_index[origin_id]
             origin_location = utils.id_to_easting_northing(origin_id)
 
@@ -85,8 +89,23 @@ class OriginDestination:
                 destination_node = self.get_nearest_node(destination_location[0], destination_location[1])
 
                 if origin_node == destination_node:
-                    self.matrix[origin_index, destination_index] = 0
-                    self.matrix[destination_index, origin_index] = 0
+                    origin_lon, origin_lat = utils.utm_to_geographic(origin_location[0], origin_location[1])
+                    destination_lon, destination_lat = utils.utm_to_geographic(destination_location[0], destination_location[1])
+
+                    travel_time = self.calculate_travel_time(
+                        origin_lat,
+                        origin_lon, 
+                        destination_lat,
+                        destination_lon, 
+                        speed_km_per_hr=50
+                    )
+
+                    print(travel_time)
+
+                    self.matrix[origin_index, destination_index] = travel_time
+                    self.matrix[destination_index, origin_index] = travel_time
+
+                    progress_bar.update(1)
                     continue
 
                 shortest_time_path = nx.shortest_path(self.graph, origin_node, destination_node, weight='time')
@@ -99,6 +118,8 @@ class OriginDestination:
                 else:
                     self.matrix[origin_index, destination_index] = float("inf")
                     self.matrix[destination_index, origin_index] = float("inf")
+
+                progress_bar.update(1)
         
         self.write()
 
@@ -136,9 +157,9 @@ class OriginDestination:
             60: 85.8,
             70: 91.8,
             80: 104.2,
-            90: 104.2, # custom
+            90: 112.1,
             100: 120.0,
-            110: 120.0, # custom
+            110: 128.45,
             120: 136.9
         }
         INTERSECTION_PENALTY = 10
@@ -146,7 +167,7 @@ class OriginDestination:
         # Adjust the weights of the edges in the graph based on the average speeds and intersection penalty
         for u, v, data in graph.edges(data=True):
             # Use average speeds if available
-            if "maxspeed" in data:
+            if "maxspeed" in data and data["maxspeed"] != "NO:urban":
                 # Take the min of the maxspeed list (in case it's a list)
                 if isinstance(data["maxspeed"], list):
                     speed_limits = [speeds_normal.get(int(s), int(s)) for s in data["maxspeed"]]
@@ -170,3 +191,31 @@ class OriginDestination:
                 data["time"] += INTERSECTION_PENALTY / 60
 
         return graph
+
+    def haversine_distance(self, lat1, lon1, lat2, lon2):
+        # Radius of the Earth in km
+        R = 6371.0
+
+        # Convert latitude and longitude from degrees to radians
+        lat1_rad = math.radians(lat1)
+        lon1_rad = math.radians(lon1)
+        lat2_rad = math.radians(lat2)
+        lon2_rad = math.radians(lon2)
+
+        # Calculate differences in coordinates
+        dlat = lat2_rad - lat1_rad
+        dlon = lon2_rad - lon1_rad
+
+        # Haversine formula
+        a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2)**2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+        # Distance in kilometers
+        distance = R * c
+        return distance
+
+    def calculate_travel_time(self, lat1, lon1, lat2, lon2, speed_km_per_hr):
+        distance_km = self.haversine_distance(lat1, lon1, lat2, lon2)
+        time_hr = distance_km / speed_km_per_hr
+        time_sec = time_hr * 3600  # Convert hours to seconds
+        return time_sec
