@@ -383,8 +383,13 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe = self._remove_extra_resources(dataframe)
         dataframe = self._remove_other_triage_impressions(dataframe)
         dataframe = self._remove_wrong_timestamps(dataframe)
+        dataframe = self._fix_timestamps(dataframe)
+        dataframe = self._remove_na(dataframe)
+        dataframe = self._remove_outside_iqr_bounds(dataframe)
 
         dataframe = dataframe.sort_values(by="time_call_received")
+
+        dataframe["time_call_received"] = dataframe["time_call_received"].dt.strftime("%Y-%m-%d %H:%M:%S")
 
         self.save_dataframe(dataframe, self._enhanced_incidents_data_path)
     
@@ -466,6 +471,81 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
         # Return a new dataframe excluding the rows with incorrect timestamps
         return dataframe[valid_rows]
+
+    def _fix_timestamps(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        # add a 'date' column for grouping
+        dataframe["date"] = dataframe["time_call_received"].dt.floor("D")
+
+        # identify rows where 'time_call_received' is after 'time_call_processed'
+        invalid_rows_mask = dataframe["time_call_received"] > dataframe["time_call_processed"]
+
+        # calculate the mean difference for each day for valid rows
+        valid_diffs = dataframe.loc[~invalid_rows_mask, ["date", "time_call_received", "time_call_processed"]]
+        valid_diffs["time_diff"] = (valid_diffs["time_call_processed"] - valid_diffs["time_call_received"]).dt.total_seconds()
+        daily_mean_diffs = valid_diffs.groupby("date")["time_diff"].mean()
+
+        # map daily mean differences back to the original dataframe for invalid rows
+        dataframe.loc[invalid_rows_mask, "mean_diff"] = dataframe.loc[invalid_rows_mask, "date"].map(daily_mean_diffs)
+
+        # adjust 'time_call_received' for invalid rows
+        adjust_seconds = pd.to_timedelta(dataframe.loc[invalid_rows_mask, "mean_diff"], unit="s")
+        dataframe.loc[invalid_rows_mask, "time_call_received"] = dataframe.loc[invalid_rows_mask, "time_call_processed"] - adjust_seconds
+
+        # clean up temporary columns
+        dataframe = dataframe.drop(columns=["date", "mean_diff"])
+
+        return dataframe
+
+    def _remove_na(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        dataframe = dataframe.dropna(subset=["triage_impression_during_call", "time_ambulance_notified", "time_dispatch", "time_arrival_scene", "time_available"])
+
+        mask1 = dataframe["time_arrival_scene"].isna() & dataframe["time_arrival_hospital"].notna()
+        mask2 = dataframe["time_departure_scene"].isna() & dataframe["time_arrival_hospital"].notna()
+        mask3 = dataframe["time_departure_scene"].notna() & dataframe["time_arrival_hospital"].isna()
+        dataframe = dataframe[~(mask1 | mask2 | mask3)]
+
+        return dataframe
+
+    def _remove_outside_iqr_bounds(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        dataframe = self._drop_outside_bounds(dataframe, "time_call_received", "time_call_processed", upper_bound=567.0)
+        dataframe = self._drop_outside_bounds(dataframe, "time_call_processed", "time_ambulance_notified", upper_bound=1153.0)
+        dataframe = self._drop_outside_bounds(dataframe, "time_ambulance_notified", "time_dispatch", upper_bound=407.0)
+        dataframe = self._drop_outside_bounds(dataframe, "time_dispatch", "time_arrival_scene", upper_bound=1861.0)
+        dataframe = self._drop_outside_bounds(dataframe, "time_arrival_scene", "time_departure_scene", upper_bound=4717.0)
+        dataframe = self._drop_outside_bounds(dataframe, "time_departure_scene", "time_arrival_hospital", upper_bound=3169.0)
+        dataframe = self._drop_outside_bounds(dataframe, "time_arrival_hospital", "time_available", upper_bound=3295.0)
+        dataframe = self._drop_outside_bounds(dataframe, "time_call_received", "time_available", upper_bound=10090.0)
+
+        return dataframe
+
+    def _drop_outside_bounds(self, dataframe: pd.DataFrame, column_start: str, column_end: str, lower_bound: float = None, upper_bound: float = None) -> pd.DataFrame:
+        """
+        Drops rows from the DataFrame where the time difference between two specified
+        datetime columns is outside the given lower and/or upper bounds in seconds.
+
+        Parameters:
+        - dataframe: pd.DataFrame containing the data.
+        - column_start: str, name of the start time column.
+        - column_end: str, name of the end time column.
+        - lower_bound: float, lower bound for the time difference in seconds. Default is None.
+        - upper_bound: float, upper bound for the time difference in seconds. Default is None.
+
+        Returns:
+        - pd.DataFrame: Modified DataFrame with rows outside the bounds removed.
+        """
+        keep_mask = pd.Series(True, index=dataframe.index)
+
+        valid_rows = dataframe[column_start].notnull() & dataframe[column_end].notnull()
+        time_diffs = (dataframe.loc[valid_rows, column_end] - dataframe.loc[valid_rows, column_start]).dt.total_seconds()
+
+        if lower_bound is not None:
+            keep_mask.loc[valid_rows] = keep_mask.loc[valid_rows] & (time_diffs >= lower_bound).values
+        if upper_bound is not None:
+            keep_mask.loc[valid_rows] = keep_mask.loc[valid_rows] & (time_diffs <= upper_bound).values
+
+        keep_mask = keep_mask.astype(bool)
+
+        return dataframe[keep_mask]
 
     def _enhance_depots(self) -> None:
         dataframe = self.load_processed_depots_dataframe()
