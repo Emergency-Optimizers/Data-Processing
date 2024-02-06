@@ -1,17 +1,12 @@
 import constants
 
 import os
-import pyproj
 import math
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
-
-
-# Create a transformer to convert from geographic to UTM
-transformer_geographic_to_utm = pyproj.Transformer.from_crs("EPSG:4326", f"EPSG:326{33}")
-# Create a transformer to convert from UTM to geographic
-transformer_utm_to_geographic = pyproj.Transformer.from_crs(f"EPSG:326{33}", "EPSG:4326")
+import utm
+import math
 
 
 def get_raw_incidents_path(dataset_id: str) -> str:
@@ -46,64 +41,29 @@ def get_enhanced_depots_path(dataset_id: str) -> str:
     return os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "enhanced", dataset_id, "depots.csv")
 
 
-def geographic_to_utm(longitude, latitude, zone=33, offset=0):
-    """
-    Convert geographic (longitude and latitude) coordinates to UTM coordinates.
-
-    Parameters:
-    - longitude (float): Longitude of the geographic coordinate.
-    - latitude (float): Latitude of the geographic coordinate.
-    - zone (int, optional): UTM zone number for the conversion. Default is 33, which covers parts of Norway.
-    - offset (int, optional): False easting value. This shifts the UTM x-coordinate by the specified value.
-    
-    Returns:
-    - tuple: UTM x-coordinate and UTM y-coordinate.
-    """
-    utm_easting, utm_northing = transformer_geographic_to_utm.transform(latitude, longitude)
-    utm_easting += offset
-    return utm_easting, utm_northing
+def geographic_to_utm(lon, lat, zone=33):
+    x, y, _, _, = utm.from_latlon(lat, lon, zone)
+    return x, y
 
 
-def utm_to_geographic(easting, northing, zone=33, offset=0):
-    """
-    Convert UTM coordinates to geographic (longitude and latitude) coordinates.
-
-    Parameters:
-    - easting (float): UTM x-coordinate.
-    - northing (float): UTM y-coordinate.
-    - zone (int, optional): UTM zone number for the conversion. Default is 33, which covers parts of Norway.
-    - offset (int, optional): False easting value. This subtracts the specified value from the UTM x-coordinate before conversion.
-    
-    Returns:
-    - tuple: Longitude and latitude of the geographic coordinate.
-    """
-    easting -= offset
-    longitude, latitude = transformer_utm_to_geographic.transform(easting, northing)
-    return longitude, latitude
+def utm_to_geographic(x, y, zone=33, northern=True):
+    lat, lon = utm.to_latlon(x, y, zone, northern=northern, strict=False)
+    return lon, lat
 
 
-def utm_to_id(easting, northing):
-    """Convert easting and northing to an ID based on the given formula."""
-    ID = 2 * (10**13) + easting * (10**7) + northing
-    return ID
+def utm_to_id(x, y, cell_size=1000, offset=2000000):
+    x_corner = math.floor((x + offset) / cell_size) * cell_size - offset
+    y_corner = (math.floor(y / cell_size) * cell_size)
+    return 20000000000000 + (x_corner * 10000000) + y_corner
+
+
+def id_to_utm(grid_id):
+    x = math.floor(grid_id * (10**(-7))) - (2 * (10**6))
+    y = grid_id - (math.floor(grid_id * (10**(-7))) * (10**7))
+    return x, y
 
 
 def id_to_row_col(grid_id, cell_size=1000):
-    """
-    Convert grid ID to row and column values.
-    
-    Parameters:
-    - grid_id: int
-        The ID of the grid cell.
-    - cell_size: int
-        The height (and potentially width if the grid is square) of each cell in meters.
-    
-    Returns:
-    - row: int
-        Row index of the grid cell.
-    - col: int
-        Column index of the grid cell.
-    """
     # extracting Y_c (northing) from the ID
     Y_c = grid_id % (10**7)
     # extracting X_c (easting) from the ID
@@ -117,72 +77,20 @@ def id_to_row_col(grid_id, cell_size=1000):
 
 
 def row_col_to_id(row, col, cell_size=1000):
-    """
-    Convert row and col values to grid ID.
-
-    Parameters:
-    - row: int
-        Row index of the grid cell.
-    - col: int
-        Column index of the grid cell.
-    - cell_size: int
-        The height (and width, since cells are quadratic) of each cell in meters.
-
-    Returns:
-    - grid_id: int
-        The ID of the grid cell.
-    """
-    
-    # Convert row and col to northing and easting
+    # convert row and col to northing and easting
     Y_c = row * cell_size
     X_c = col * cell_size
-
-    # Compute grid ID using the formula
+    # compute grid ID using the formula
     grid_id = 2 * 10**13 + X_c * 10**7 + Y_c
 
     return grid_id
 
 
-def id_to_easting_northing(grid_id):
-    """
-    Convert grid ID to easting and northing values.
-    
-    Parameters:
-    - grid_id: int
-        The ID of the grid cell.
-    
-    Returns:
-    - easting: int
-        Easting (X_c) value of the grid cell's southwestern corner.
-    - northing: int
-        Northing (Y_c) value of the grid cell's southwestern corner.
-    """
-
-    # Extracting Y_c (northing) from the ID
-    northing = grid_id % (10**7)
-    
-    # Extracting X_c (easting) from the ID
-    easting = (grid_id - 2 * 10**13 - northing) // 10**7
-
-    return easting, northing
-
-
-def snap_utm_to_ssb_grid(easting, northing, cell_size=1000):
+def snap_utm_to_grid(x, y, cell_size=1000, offset=2000000):
     return (
-        (math.floor((easting + 2000000) / cell_size) * cell_size - 2000000),
-        (math.floor(northing / cell_size) * cell_size)
+        (math.floor((x + offset) / cell_size) * cell_size - offset),
+        (math.floor(y / cell_size) * cell_size)
     )
-
-
-def centroid_to_ssb_grid_points(easting, northing):
-    x_c, y_c = snap_utm_to_ssb_grid(easting, northing)
-    ssb_grid_points = [(x_c, y_c)]
-
-    for x_offset, y_offset in [(1000, 0), (1000, 1000), (0, 1000)]:
-        ssb_grid_points.append((x_c + x_offset, y_c + y_offset))
-
-    ssb_grid_points.append((x_c, y_c))
-    return ssb_grid_points
 
 
 def copy_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -199,7 +107,7 @@ def copy_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_cell_corners(easting: int, northing: int, cell_size=1000) -> list[tuple[float, float], tuple[float, float], tuple[float, float], tuple[float, float]]:
-    south_west_easting, south_west_northing = snap_utm_to_ssb_grid(easting, northing, cell_size)
+    south_west_easting, south_west_northing = snap_utm_to_grid(easting, northing, cell_size)
     south_east_easting, south_east_northing = south_west_easting + cell_size, south_west_northing
     north_east_easting, north_east_northing = south_west_easting + cell_size, south_west_northing + cell_size
     north_west_easting, north_west_northing = south_west_easting, south_west_northing + cell_size

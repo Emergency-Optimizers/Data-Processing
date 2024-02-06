@@ -1,9 +1,19 @@
 import os
 import seaborn as sns
-import matplotlib.pyplot as plt
+import matplotlib.pyplot
 
 
 PROJECT_DIRECTORY_PATH = os.path.dirname(os.path.dirname(__file__))
+
+matplotlib.pyplot.rcParams["font.family"] = "Palatino Linotype"
+matplotlib.pyplot.rcParams["font.size"] = 12
+
+FONT_PROPERTIES_HEADER = {
+    "fontname": "Palatino Linotype",
+    "fontsize": 16,
+    "fontweight": "regular",
+    "color": "black"
+}
 
 normal_palette = sns.color_palette()
 deep_palette = sns.color_palette("deep")
@@ -22,7 +32,7 @@ COLOR_MAPPING_DEEP = {
     "V2": deep_palette[2]
 }
 
-COLOR_MAPPING_LIGHT = [plt.cm.colors.to_rgba(color, alpha=0.65) for color in COLOR_MAPPING_DEEP.values()]
+COLOR_MAPPING_LIGHT = [matplotlib.pyplot.cm.colors.to_rgba(color, alpha=0.65) for color in COLOR_MAPPING_DEEP.values()]
 
 COLOR_MAPPING_NORMAL = {
     "A": normal_palette[0],
@@ -31,6 +41,6 @@ COLOR_MAPPING_NORMAL = {
     "V2": normal_palette[3]
 }
 
-COLOR_MAPPING_NORMAL_LIGHT = [plt.cm.colors.to_rgba(color, alpha=0.65) for color in COLOR_MAPPING_NORMAL.values()]
+COLOR_MAPPING_NORMAL_LIGHT = [matplotlib.pyplot.cm.colors.to_rgba(color, alpha=0.65) for color in COLOR_MAPPING_NORMAL.values()]
 
 
