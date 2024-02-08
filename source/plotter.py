@@ -3,6 +3,7 @@ import constants
 import pandas as pd
 import matplotlib.dates
 import matplotlib.pyplot
+import numpy as np
 
 
 def incidents_over_years(dataframe: pd.DataFrame, figsize: tuple[float, float] = [12, 6], limit_left: str = None, limit_right: str = None):
@@ -34,7 +35,13 @@ def incidents_over_years(dataframe: pd.DataFrame, figsize: tuple[float, float] =
     matplotlib.pyplot.show()
 
 
-def plot_time_difference_distribution(dataframe: pd.DataFrame, column_start: str, column_end: str, log_scale: bool = False, IQR_multiplier: float = 1.5) -> tuple[float, float]:
+def plot_time_difference_distribution(
+    dataframe: pd.DataFrame,
+    column_start: str,
+    column_end: str,
+    triage_impression: str = None,
+    log_scale: bool = False
+):
     """
     Plots the distribution of time differences in seconds between two datetime columns,
     excluding rows with None/NaT values, with an option to use a logarithmic scale for the y-axis.
@@ -46,6 +53,8 @@ def plot_time_difference_distribution(dataframe: pd.DataFrame, column_start: str
     - log_scale: If True, use a logarithmic scale for the y-axis.
     """
     valid_rows = dataframe[column_start].notnull() & dataframe[column_end].notnull()
+    if triage_impression != None:
+        valid_rows &= (dataframe["triage_impression_during_call"] != triage_impression)
 
     # calculate time difference in seconds only for rows without None/NaT values
     time_diffs = (dataframe.loc[valid_rows, column_end] - dataframe.loc[valid_rows, column_start]).dt.total_seconds()
@@ -53,25 +62,15 @@ def plot_time_difference_distribution(dataframe: pd.DataFrame, column_start: str
     # plot the distribution of time differences
     matplotlib.pyplot.figure(figsize=(10, 6))
     matplotlib.pyplot.hist(time_diffs, bins=100, color="blue", edgecolor="black", alpha=0.7, log=log_scale)
+
     matplotlib.pyplot.title(f"Distribution of Time Differences ({column_start} to {column_end})")
     matplotlib.pyplot.xlabel("Time Difference in Seconds")
     matplotlib.pyplot.ylabel("Frequency" if not log_scale else "Log(Frequency)")
     matplotlib.pyplot.grid(True)
     matplotlib.pyplot.show()
 
-    # calculate and print IQR-based cutoffs and statistics for additional insights
-    Q1 = time_diffs.quantile(0.25)
-    Q3 = time_diffs.quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = max(0, Q1 - IQR_multiplier * IQR)
-    upper_bound = Q3 + IQR_multiplier * IQR
-
     print(f"Mean time difference: {time_diffs.mean()} seconds")
     print(f"Median time difference: {time_diffs.median()} seconds")
     print(f"Standard deviation of time difference: {time_diffs.std()} seconds")
     print(f"Maximum time difference: {time_diffs.max()} seconds")
     print(f"Minimum time difference: {time_diffs.min()} seconds")
-    print(f"Suggested upper bound for dropping rows: {upper_bound} seconds")
-    print(f"Suggested lower bound for dropping rows: {lower_bound} seconds")
-
-    return lower_bound, upper_bound

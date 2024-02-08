@@ -7,6 +7,7 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import utm
 import math
+import numpy as np
 
 
 def get_raw_incidents_path(dataset_id: str) -> str:
@@ -148,3 +149,33 @@ def plot_multiple_geojson_polygons_in_one_plot_corrected(file_paths, labels, col
     plt.legend()
     plt.grid(True)
     plt.show()
+
+
+def time_difference_lower_upper_bounds(
+    data: pd.Series,
+    z_score_threshold: float = 3,
+    IQR_multiplier = 1.5,
+    verbose: bool = False
+):
+    data = np.log(data + 1)
+
+    # Z-Score
+    mean = data.mean()
+    std = data.std()
+    z_lower_bound = np.exp(mean - z_score_threshold * std) - 1
+    z_upper_bound = np.exp(mean + z_score_threshold * std) - 1
+
+    # IQR
+    Q1 = data.quantile(0.25)
+    Q3 = data.quantile(0.75)
+    IQR = Q3 - Q1
+    iqr_lower_bound = np.exp(Q1 - IQR_multiplier * IQR) - 1
+    iqr_upper_bound = np.exp(Q3 + IQR_multiplier * IQR) - 1
+
+    if verbose:
+        print(f"Suggested IQR upper bound for dropping rows: {round(iqr_upper_bound, 2)} seconds")
+        print(f"Suggested IQR lower bound for dropping rows: {round(iqr_lower_bound, 2)} seconds")
+        print(f"Suggested Z-Score upper bound for dropping rows: {round(z_upper_bound, 2)} seconds")
+        print(f"Suggested Z-Score lower bound for dropping rows: {round(z_lower_bound, 2)} seconds")
+
+    return [z_lower_bound, z_upper_bound], [iqr_lower_bound, iqr_upper_bound]

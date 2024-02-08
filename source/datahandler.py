@@ -238,7 +238,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe["resource_type"] = dataframe_clean["tiltak_type"]
         dataframe["resources_sent"] = 0
         dataframe["time_call_received"] = dataframe_clean["tidspunkt"]
-        dataframe["time_call_processed"] = dataframe_clean["tiltak_opprettet"]
+        dataframe["time_call_answered"] = dataframe_clean["tiltak_opprettet"]
         dataframe["time_ambulance_notified"] = dataframe_clean["varslet"]
         dataframe["time_dispatch"] = dataframe_clean["rykker_ut"]
         dataframe["time_arrival_scene"] = dataframe_clean["ank_hentested"]
@@ -385,7 +385,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe = self._remove_wrong_timestamps(dataframe)
         dataframe = self._fix_timestamps(dataframe)
         dataframe = self._remove_na(dataframe)
-        dataframe = self._remove_outside_iqr_bounds(dataframe)
+        dataframe = self._remove_outliers(dataframe)
 
         dataframe = dataframe.sort_values(by="time_call_received")
 
@@ -408,7 +408,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
     def _remove_extra_resources(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         # columns to consider for counting NaNs
         time_columns = [
-            "time_call_processed",
+            "time_call_answered",
             "time_ambulance_notified",
             "time_dispatch",
             "time_arrival_scene",
@@ -453,7 +453,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
     def _remove_wrong_timestamps(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         datetime_columns = [
-            "time_call_received", "time_call_processed", "time_ambulance_notified",
+            "time_call_received", "time_call_answered", "time_ambulance_notified",
             "time_dispatch", "time_arrival_scene", "time_departure_scene",
             "time_arrival_hospital", "time_available"
         ]
@@ -476,12 +476,12 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         # add a 'date' column for grouping
         dataframe["date"] = dataframe["time_call_received"].dt.floor("D")
 
-        # identify rows where 'time_call_received' is after 'time_call_processed'
-        invalid_rows_mask = dataframe["time_call_received"] > dataframe["time_call_processed"]
+        # identify rows where 'time_call_received' is after 'time_call_answered'
+        invalid_rows_mask = dataframe["time_call_received"] > dataframe["time_call_answered"]
 
         # calculate the mean difference for each day for valid rows
-        valid_diffs = dataframe.loc[~invalid_rows_mask, ["date", "time_call_received", "time_call_processed"]]
-        valid_diffs["time_diff"] = (valid_diffs["time_call_processed"] - valid_diffs["time_call_received"]).dt.total_seconds()
+        valid_diffs = dataframe.loc[~invalid_rows_mask, ["date", "time_call_received", "time_call_answered"]]
+        valid_diffs["time_diff"] = (valid_diffs["time_call_answered"] - valid_diffs["time_call_received"]).dt.total_seconds()
         daily_mean_diffs = valid_diffs.groupby("date")["time_diff"].mean()
 
         # map daily mean differences back to the original dataframe for invalid rows
@@ -489,7 +489,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
         # adjust 'time_call_received' for invalid rows
         adjust_seconds = pd.to_timedelta(dataframe.loc[invalid_rows_mask, "mean_diff"], unit="s")
-        dataframe.loc[invalid_rows_mask, "time_call_received"] = dataframe.loc[invalid_rows_mask, "time_call_processed"] - adjust_seconds
+        dataframe.loc[invalid_rows_mask, "time_call_received"] = dataframe.loc[invalid_rows_mask, "time_call_answered"] - adjust_seconds
 
         # clean up temporary columns
         dataframe = dataframe.drop(columns=["date", "mean_diff"])
@@ -506,42 +506,134 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
         return dataframe
 
-    def _remove_outside_iqr_bounds(self, dataframe: pd.DataFrame) -> pd.DataFrame:
-        dataframe = self._drop_outside_bounds(dataframe, "time_call_received", "time_call_processed", upper_bound=567.0)
-        dataframe = self._drop_outside_bounds(dataframe, "time_call_processed", "time_ambulance_notified", upper_bound=1153.0)
-        dataframe = self._drop_outside_bounds(dataframe, "time_ambulance_notified", "time_dispatch", upper_bound=407.0)
-        dataframe = self._drop_outside_bounds(dataframe, "time_dispatch", "time_arrival_scene", upper_bound=1861.0)
-        dataframe = self._drop_outside_bounds(dataframe, "time_arrival_scene", "time_departure_scene", upper_bound=4717.0)
-        dataframe = self._drop_outside_bounds(dataframe, "time_departure_scene", "time_arrival_hospital", upper_bound=3169.0)
-        dataframe = self._drop_outside_bounds(dataframe, "time_arrival_hospital", "time_available", upper_bound=3295.0)
-        dataframe = self._drop_outside_bounds(dataframe, "time_call_received", "time_available", upper_bound=10090.0)
+    def _remove_outliers(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        dataframe = self._drop_outside_bounds(
+            dataframe,
+            "time_call_received",
+            "time_call_answered",
+            triage_impression=None,
+            z_score_threshold=3,
+            IQR_multiplier=1.5,
+            bounds_to_use="z"
+        )
+
+        dataframe = self._drop_outside_bounds(
+            dataframe,
+            "time_call_answered",
+            "time_ambulance_notified",
+            triage_impression=None,
+            z_score_threshold=3,
+            IQR_multiplier=1.5,
+            bounds_to_use="z"
+        )
+
+        dataframe = self._drop_outside_bounds(
+            dataframe,
+            "time_ambulance_notified",
+            "time_dispatch",
+            triage_impression=None,
+            z_score_threshold=3,
+            IQR_multiplier=1.5,
+            bounds_to_use="z"
+        )
+
+        dataframe = self._drop_outside_bounds(
+            dataframe,
+            "time_dispatch",
+            "time_arrival_scene",
+            triage_impression=None,
+            z_score_threshold=3,
+            IQR_multiplier=1.5,
+            bounds_to_use="z"
+        )
+
+        dataframe = self._drop_outside_bounds(
+            dataframe,
+            "time_arrival_scene",
+            "time_departure_scene",
+            triage_impression=None,
+            z_score_threshold=3,
+            IQR_multiplier=1.5,
+            bounds_to_use="z"
+        )
+
+        dataframe = self._drop_outside_bounds(
+            dataframe,
+            "time_departure_scene",
+            "time_arrival_hospital",
+            triage_impression=None,
+            z_score_threshold=3,
+            IQR_multiplier=1.5,
+            bounds_to_use="z"
+        )
+
+        dataframe = self._drop_outside_bounds(
+            dataframe,
+            "time_arrival_hospital",
+            "time_available",
+            triage_impression=None,
+            z_score_threshold=3,
+            IQR_multiplier=1.5,
+            bounds_to_use="z"
+        )
+
+        dataframe = self._drop_outside_bounds(
+            dataframe,
+            "time_call_received",
+            "time_available",
+            triage_impression=None,
+            z_score_threshold=3,
+            IQR_multiplier=1.5,
+            bounds_to_use="z"
+        )
 
         return dataframe
 
-    def _drop_outside_bounds(self, dataframe: pd.DataFrame, column_start: str, column_end: str, lower_bound: float = None, upper_bound: float = None) -> pd.DataFrame:
-        """
-        Drops rows from the DataFrame where the time difference between two specified
-        datetime columns is outside the given lower and/or upper bounds in seconds.
-
-        Parameters:
-        - dataframe: pd.DataFrame containing the data.
-        - column_start: str, name of the start time column.
-        - column_end: str, name of the end time column.
-        - lower_bound: float, lower bound for the time difference in seconds. Default is None.
-        - upper_bound: float, upper bound for the time difference in seconds. Default is None.
-
-        Returns:
-        - pd.DataFrame: Modified DataFrame with rows outside the bounds removed.
-        """
+    def _drop_outside_bounds(
+        self,
+        dataframe: pd.DataFrame,
+        column_start: str,
+        column_end: str,
+        triage_impression: str = None,
+        z_score_threshold: float = 3,
+        IQR_multiplier: float = 1.5,
+        bounds_to_use: str = "z",
+        verbose: bool = False
+    ) -> pd.DataFrame:
         keep_mask = pd.Series(True, index=dataframe.index)
 
         valid_rows = dataframe[column_start].notnull() & dataframe[column_end].notnull()
+        if triage_impression != None:
+            valid_rows &= (dataframe["triage_impression_during_call"] != triage_impression)
+
         time_diffs = (dataframe.loc[valid_rows, column_end] - dataframe.loc[valid_rows, column_start]).dt.total_seconds()
 
-        if lower_bound is not None:
-            keep_mask.loc[valid_rows] = keep_mask.loc[valid_rows] & (time_diffs >= lower_bound).values
-        if upper_bound is not None:
-            keep_mask.loc[valid_rows] = keep_mask.loc[valid_rows] & (time_diffs <= upper_bound).values
+        z_bounds, iqr_bounds = utils.time_difference_lower_upper_bounds(
+            time_diffs,
+            z_score_threshold,
+            IQR_multiplier,
+            verbose
+        )
+
+        match bounds_to_use:
+            case "z":
+                bounds = z_bounds
+            case "iqr":
+                bounds = iqr_bounds
+            case _:
+                print("ERROR: unknown bounds to use")
+                return
+
+        keep_mask = pd.Series(True, index=dataframe.index)
+
+        valid_rows = dataframe[column_start].notnull() & dataframe[column_end].notnull()
+        if triage_impression != None:
+            valid_rows &= (dataframe["triage_impression_during_call"] != triage_impression)
+
+        time_diffs = (dataframe.loc[valid_rows, column_end] - dataframe.loc[valid_rows, column_start]).dt.total_seconds()
+
+        keep_mask.loc[valid_rows] = keep_mask.loc[valid_rows] & (time_diffs >= bounds[0]).values
+        keep_mask.loc[valid_rows] = keep_mask.loc[valid_rows] & (time_diffs <= bounds[1]).values
 
         keep_mask = keep_mask.astype(bool)
 
@@ -749,7 +841,7 @@ class DataPreprocessorOUS(DataPreprocessor):
             "synthetic": "bool",
             "triage_impression_during_call": "str",
             "time_call_received": "str",
-            "time_call_processed": "str",
+            "time_call_answered": "str",
             "time_ambulance_notified": "str",
             "time_dispatch": "str",
             "time_arrival_scene": "str",
@@ -773,7 +865,7 @@ class DataPreprocessorOUS(DataPreprocessor):
             "synthetic": [],
             "triage_impression_during_call": [],
             "time_call_received": [],
-            "time_call_processed": [],
+            "time_call_answered": [],
             "time_ambulance_notified": [],
             "time_dispatch": [],
             "time_arrival_scene": [],
@@ -803,7 +895,7 @@ class DataPreprocessorOUS(DataPreprocessor):
             row_data["synthetic"].append(False)
             row_data["triage_impression_during_call"].append(row["hastegrad"])
             row_data["time_call_received"].append(row["tidspunkt"])
-            row_data["time_call_processed"].append(row["tiltak_opprettet"])
+            row_data["time_call_answered"].append(row["tiltak_opprettet"])
             row_data["time_ambulance_notified"].append(row["varslet"])
             row_data["time_dispatch"].append(row["rykker_ut"])
             row_data["time_arrival_scene"].append(row["ank_hentested"])
@@ -1038,7 +1130,7 @@ class DataLoader:
 def fix_timeframes(df_incidents: pd.DataFrame) -> pd.DataFrame:
     # convert time columns to datetime format
     time_columns = [
-        'time_call_received', 'time_call_processed', 'time_ambulance_notified',
+        'time_call_received', 'time_call_answered', 'time_ambulance_notified',
         'time_dispatch', 'time_arrival_scene', 'time_departure_scene',
         'time_arrival_hospital', 'time_available'
     ]
