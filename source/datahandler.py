@@ -226,6 +226,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe = self.initialize_processed_incidents_dataframe()
         dataframe = self.add_geo_data(dataframe)
         dataframe = self._count_resources_sent(dataframe)
+        dataframe = self._count_total_per_day_night_shift(dataframe)
 
         self.save_dataframe(dataframe, self._processed_incidents_data_path)
     
@@ -252,6 +253,9 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe["latitude"] = np.nan
         dataframe["region"] = None
         dataframe["urban_settlement"] = False
+        dataframe["total_morning"] = 0
+        dataframe["total_day"] = 0
+        dataframe["total_night"] = 0
 
         dataframe = dataframe.sort_values(by="time_call_received")
 
@@ -382,6 +386,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe = self._count_resources_sent(dataframe)
         dataframe = self._remove_extra_resources(dataframe)
         dataframe = self._remove_other_triage_impressions(dataframe)
+        dataframe = self._count_total_per_day_night_shift(dataframe)
         dataframe = self._remove_wrong_timestamps(dataframe)
         dataframe = self._fix_timestamps(dataframe)
         dataframe = self._remove_na(dataframe)
@@ -638,6 +643,32 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         keep_mask = keep_mask.astype(bool)
 
         return dataframe[keep_mask]
+    
+    def _count_total_per_day_night_shift(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        def classify_shift(hour):
+            if 0 <= hour < 7:
+                return "morning"
+            elif 7 <= hour < 22:
+                return "day"
+            else:
+                return "night"
+
+        dataframe["shift_type"] = dataframe["time_call_received"].dt.hour.apply(classify_shift)
+
+        dataframe["date"] = dataframe["time_call_received"].dt.date
+
+        shift_counts = dataframe.groupby(["date", "shift_type"]).size().unstack(fill_value=0).reset_index()
+
+        for _, row in shift_counts.iterrows():
+            date = row['date']
+            
+            dataframe.loc[dataframe['date'] == date, 'total_morning'] = row['morning']
+            dataframe.loc[dataframe['date'] == date, 'total_day'] = row['day']
+            dataframe.loc[dataframe['date'] == date, 'total_night'] = row['night']
+
+        dataframe.drop(columns=["shift_type", "date"], inplace=True)
+
+        return dataframe
 
     def _enhance_depots(self) -> None:
         dataframe = self.load_processed_depots_dataframe()
@@ -697,7 +728,10 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "longitude": "float64",
             "latitude": "float64",
             "region": "object",
-            "urban_settlement": "bool"
+            "urban_settlement": "bool",
+            "total_morning": "int64",
+            "total_day": "int64",
+            "total_night": "int64"
         }
         column_index_dates = [4, 5, 6, 7, 8, 9, 10, 11]
 
@@ -742,7 +776,10 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "longitude": "float64",
             "latitude": "float64",
             "region": "object",
-            "urban_settlement": "bool"
+            "urban_settlement": "bool",
+            "total_morning": "int64",
+            "total_day": "int64",
+            "total_night": "int64"
         }
         column_index_dates = [4, 5, 6, 7, 8, 9, 10, 11]
 
