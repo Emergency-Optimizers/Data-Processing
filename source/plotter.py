@@ -2,11 +2,11 @@ import constants
 
 import pandas as pd
 import matplotlib.dates
-import matplotlib.pyplot
-import numpy as np
+import matplotlib.pyplot as plt
 
 
 def incidents_over_years(dataframe: pd.DataFrame, figsize: tuple[float, float] = [12, 6], limit_left: str = None, limit_right: str = None):
+    # NB! temporary method for OUS meeting
     # prepare data
     daily_incidents = dataframe.groupby(dataframe["time_call_received"].dt.date).size()
 
@@ -35,6 +35,43 @@ def incidents_over_years(dataframe: pd.DataFrame, figsize: tuple[float, float] =
     matplotlib.pyplot.show()
 
 
+def overlay_incidents_over_years(dataframe1: pd.DataFrame, dataframe2: pd.DataFrame, figsize: tuple[float, float] = [12, 6], limit_left: str = None, limit_right: str = None):
+    # Prepare data for the first dataframe
+    daily_incidents1 = dataframe1.groupby(dataframe1["time_call_received"].dt.date).size()
+
+    # Prepare data for the second dataframe
+    daily_incidents2 = dataframe2.groupby(dataframe2["time_call_received"].dt.date).size()
+
+    # Plot data
+    plt.figure(figsize=figsize)
+
+    # Plot the first dataframe in blue
+    plt.plot(daily_incidents1.index, daily_incidents1.values, color='blue', label='Before removing wrong timestamps')
+
+    # Overlay the second dataframe in orange
+    plt.plot(daily_incidents2.index, daily_incidents2.values, 'g--', label='After removing wrong timestamps')
+
+    # Aesthetics
+    if limit_left is not None:
+        plt.xlim(left=pd.Timestamp(limit_left))
+    if limit_right is not None:
+        plt.xlim(right=pd.Timestamp(limit_right))
+
+    plt.gca().xaxis.set_major_locator(matplotlib.dates.YearLocator())
+    plt.gca().xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%Y"))
+
+    plt.grid(True)
+
+    # Set labels and title
+    plt.title("Total Incidents Per Day Over Years")
+    plt.xlabel("Year")
+    plt.ylabel("Total Incidents")
+    plt.legend()
+
+    # Save/show plot
+    plt.show()
+
+
 def plot_time_difference_distribution(
     dataframe: pd.DataFrame,
     column_start: str,
@@ -53,7 +90,7 @@ def plot_time_difference_distribution(
     - log_scale: If True, use a logarithmic scale for the y-axis.
     """
     valid_rows = dataframe[column_start].notnull() & dataframe[column_end].notnull()
-    if triage_impression != None:
+    if triage_impression is not None:
         valid_rows &= (dataframe["triage_impression_during_call"] != triage_impression)
 
     # calculate time difference in seconds only for rows without None/NaT values
