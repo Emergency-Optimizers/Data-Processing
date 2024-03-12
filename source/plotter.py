@@ -111,3 +111,47 @@ def plot_time_difference_distribution(
     print(f"Standard deviation of time difference: {time_diffs.std()} seconds")
     print(f"Maximum time difference: {time_diffs.max()} seconds")
     print(f"Minimum time difference: {time_diffs.min()} seconds")
+
+
+def boxplot_time_at_steps(
+    dataframe: pd.DataFrame,
+    triage_impression: str = None
+):
+    title = "Time Taken At Each Step of the Incident"
+
+    if triage_impression is not None:
+        # Filter the dataframe without overwriting the original one
+        temp_df = dataframe[dataframe["triage_impression_during_call"] == triage_impression].copy()
+        title += f" ({triage_impression})"
+    else:
+        # Use the original dataframe if no triage_impression filter is applied
+        temp_df = dataframe.copy()
+
+    steps = {
+        "Creating Incident": ("time_call_received", "time_incident_created"),
+        "Appointing Resource": ("time_incident_created", "time_resource_appointed"),
+        "Resource to Start Task": ("time_resource_appointed", "time_ambulance_dispatch_to_scene"),
+        "Dispatching to Scene": ("time_ambulance_dispatch_to_scene", "time_ambulance_arrived_at_scene"),
+        "At Scene": ("time_ambulance_arrived_at_scene", "time_ambulance_dispatch_to_hospital", "time_ambulance_available"),
+        "Dispatching to Hospital": ("time_ambulance_dispatch_to_hospital", "time_ambulance_arrived_at_hospital"),
+        "At Hospital": ("time_ambulance_arrived_at_hospital", "time_ambulance_available")
+    }
+
+    # Calculating durations for each step
+    for step, times in steps.items():
+        if len(times) == 3:  # Special handling for "At scene"
+            temp_df.loc[temp_df[times[1]].isna(), step] = (temp_df[times[2]] - temp_df[times[0]]).dt.total_seconds() / 60
+            temp_df.loc[~temp_df[times[1]].isna(), step] = (temp_df[times[1]] - temp_df[times[0]]).dt.total_seconds() / 60
+        else:
+            temp_df[step] = (temp_df[times[1]] - temp_df[times[0]]).dt.total_seconds() / 60
+
+    # Adjust plot data creation
+    plot_data = [temp_df[step] for step in steps if step not in ["Dispatching to Hospital", "At Hospital"]] + [temp_df[step].dropna() for step in steps if step in ["Dispatching to Hospital", "At Hospital"]]
+
+    # Plotting
+    plt.figure(figsize=(8, 4))
+    plt.boxplot(plot_data[::-1], labels=list(steps.keys())[::-1], vert=False, patch_artist=True, showfliers=False)
+    plt.title(title)
+    plt.xlabel("Time in Minutes")
+    plt.xticks()
+    plt.show()
