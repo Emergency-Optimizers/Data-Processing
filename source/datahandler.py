@@ -239,13 +239,13 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe["resource_type"] = dataframe_clean["tiltak_type"]
         dataframe["resources_sent"] = 0
         dataframe["time_call_received"] = dataframe_clean["tidspunkt"]
-        dataframe["time_call_answered"] = dataframe_clean["tiltak_opprettet"]
-        dataframe["time_ambulance_notified"] = dataframe_clean["varslet"]
-        dataframe["time_dispatch"] = dataframe_clean["rykker_ut"]
-        dataframe["time_arrival_scene"] = dataframe_clean["ank_hentested"]
-        dataframe["time_departure_scene"] = dataframe_clean["avg_hentested"]
-        dataframe["time_arrival_hospital"] = dataframe_clean["ank_levsted"]
-        dataframe["time_available"] = dataframe_clean["ledig"]
+        dataframe["time_incident_created"] = dataframe_clean["tiltak_opprettet"]
+        dataframe["time_resource_appointed"] = dataframe_clean["varslet"]
+        dataframe["time_ambulance_dispatch_to_scene"] = dataframe_clean["rykker_ut"]
+        dataframe["time_ambulance_arrived_at_scene"] = dataframe_clean["ank_hentested"]
+        dataframe["time_ambulance_dispatch_to_hospital"] = dataframe_clean["avg_hentested"]
+        dataframe["time_ambulance_arrived_at_hospital"] = dataframe_clean["ank_levsted"]
+        dataframe["time_ambulance_available"] = dataframe_clean["ledig"]
         dataframe["grid_id"] = dataframe_clean["ssbid1000M"]
         dataframe["x"] = dataframe_clean["xcoor"]
         dataframe["y"] = dataframe_clean["ycoor"]
@@ -413,13 +413,13 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
     def _remove_extra_resources(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         # columns to consider for counting NaNs
         time_columns = [
-            "time_call_answered",
-            "time_ambulance_notified",
-            "time_dispatch",
-            "time_arrival_scene",
-            "time_departure_scene",
-            "time_arrival_hospital",
-            "time_available"
+            "time_incident_created",
+            "time_resource_appointed",
+            "time_ambulance_dispatch_to_scene",
+            "time_ambulance_arrived_at_scene",
+            "time_ambulance_dispatch_to_hospital",
+            "time_ambulance_arrived_at_hospital",
+            "time_ambulance_available"
         ]
 
         # cort by the number of NaNs in time columns (ascending) and then by 'time_call_received' and 'grid_id'
@@ -458,9 +458,9 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
     def _remove_wrong_timestamps(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         datetime_columns = [
-            "time_call_received", "time_call_answered", "time_ambulance_notified",
-            "time_dispatch", "time_arrival_scene", "time_departure_scene",
-            "time_arrival_hospital", "time_available"
+            "time_call_received", "time_incident_created", "time_resource_appointed",
+            "time_ambulance_dispatch_to_scene", "time_ambulance_arrived_at_scene", "time_ambulance_dispatch_to_hospital",
+            "time_ambulance_arrived_at_hospital", "time_ambulance_available"
         ]
 
         # Start with all rows marked as valid
@@ -481,12 +481,12 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         # add a 'date' column for grouping
         dataframe["date"] = dataframe["time_call_received"].dt.floor("D")
 
-        # identify rows where 'time_call_received' is after 'time_call_answered'
-        invalid_rows_mask = dataframe["time_call_received"] > dataframe["time_call_answered"]
+        # identify rows where 'time_call_received' is after 'time_incident_created'
+        invalid_rows_mask = dataframe["time_call_received"] > dataframe["time_incident_created"]
 
         # calculate the mean difference for each day for valid rows
-        valid_diffs = dataframe.loc[~invalid_rows_mask, ["date", "time_call_received", "time_call_answered"]]
-        valid_diffs["time_diff"] = (valid_diffs["time_call_answered"] - valid_diffs["time_call_received"]).dt.total_seconds()
+        valid_diffs = dataframe.loc[~invalid_rows_mask, ["date", "time_call_received", "time_incident_created"]]
+        valid_diffs["time_diff"] = (valid_diffs["time_incident_created"] - valid_diffs["time_call_received"]).dt.total_seconds()
         daily_mean_diffs = valid_diffs.groupby("date")["time_diff"].mean()
 
         # map daily mean differences back to the original dataframe for invalid rows
@@ -494,7 +494,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
         # adjust 'time_call_received' for invalid rows
         adjust_seconds = pd.to_timedelta(dataframe.loc[invalid_rows_mask, "mean_diff"], unit="s")
-        dataframe.loc[invalid_rows_mask, "time_call_received"] = dataframe.loc[invalid_rows_mask, "time_call_answered"] - adjust_seconds
+        dataframe.loc[invalid_rows_mask, "time_call_received"] = dataframe.loc[invalid_rows_mask, "time_incident_created"] - adjust_seconds
 
         # clean up temporary columns
         dataframe = dataframe.drop(columns=["date", "mean_diff"])
@@ -502,11 +502,11 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         return dataframe
 
     def _remove_na(self, dataframe: pd.DataFrame) -> pd.DataFrame:
-        dataframe = dataframe.dropna(subset=["triage_impression_during_call", "time_ambulance_notified", "time_dispatch", "time_arrival_scene", "time_available"])
+        dataframe = dataframe.dropna(subset=["triage_impression_during_call", "time_resource_appointed", "time_ambulance_dispatch_to_scene", "time_ambulance_arrived_at_scene", "time_ambulance_available"])
 
-        mask1 = dataframe["time_arrival_scene"].isna() & dataframe["time_arrival_hospital"].notna()
-        mask2 = dataframe["time_departure_scene"].isna() & dataframe["time_arrival_hospital"].notna()
-        mask3 = dataframe["time_departure_scene"].notna() & dataframe["time_arrival_hospital"].isna()
+        mask1 = dataframe["time_ambulance_arrived_at_scene"].isna() & dataframe["time_ambulance_arrived_at_hospital"].notna()
+        mask2 = dataframe["time_ambulance_dispatch_to_hospital"].isna() & dataframe["time_ambulance_arrived_at_hospital"].notna()
+        mask3 = dataframe["time_ambulance_dispatch_to_hospital"].notna() & dataframe["time_ambulance_arrived_at_hospital"].isna()
         dataframe = dataframe[~(mask1 | mask2 | mask3)]
 
         return dataframe
@@ -515,7 +515,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe = self._drop_outside_bounds(
             dataframe,
             "time_call_received",
-            "time_call_answered",
+            "time_incident_created",
             triage_impression=None,
             z_score_threshold=3,
             IQR_multiplier=1.5,
@@ -524,8 +524,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
         dataframe = self._drop_outside_bounds(
             dataframe,
-            "time_call_answered",
-            "time_ambulance_notified",
+            "time_incident_created",
+            "time_resource_appointed",
             triage_impression=None,
             z_score_threshold=3,
             IQR_multiplier=1.5,
@@ -534,8 +534,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
         dataframe = self._drop_outside_bounds(
             dataframe,
-            "time_ambulance_notified",
-            "time_dispatch",
+            "time_resource_appointed",
+            "time_ambulance_dispatch_to_scene",
             triage_impression=None,
             z_score_threshold=3,
             IQR_multiplier=1.5,
@@ -544,8 +544,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
         dataframe = self._drop_outside_bounds(
             dataframe,
-            "time_dispatch",
-            "time_arrival_scene",
+            "time_ambulance_dispatch_to_scene",
+            "time_ambulance_arrived_at_scene",
             triage_impression=None,
             z_score_threshold=3,
             IQR_multiplier=1.5,
@@ -554,8 +554,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
         dataframe = self._drop_outside_bounds(
             dataframe,
-            "time_arrival_scene",
-            "time_departure_scene",
+            "time_ambulance_arrived_at_scene",
+            "time_ambulance_dispatch_to_hospital",
             triage_impression=None,
             z_score_threshold=3,
             IQR_multiplier=1.5,
@@ -564,8 +564,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
         dataframe = self._drop_outside_bounds(
             dataframe,
-            "time_departure_scene",
-            "time_arrival_hospital",
+            "time_ambulance_dispatch_to_hospital",
+            "time_ambulance_arrived_at_hospital",
             triage_impression=None,
             z_score_threshold=3,
             IQR_multiplier=1.5,
@@ -574,8 +574,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
         dataframe = self._drop_outside_bounds(
             dataframe,
-            "time_arrival_hospital",
-            "time_available",
+            "time_ambulance_arrived_at_hospital",
+            "time_ambulance_available",
             triage_impression=None,
             z_score_threshold=3,
             IQR_multiplier=1.5,
@@ -585,7 +585,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe = self._drop_outside_bounds(
             dataframe,
             "time_call_received",
-            "time_available",
+            "time_ambulance_available",
             triage_impression=None,
             z_score_threshold=3,
             IQR_multiplier=1.5,
@@ -878,13 +878,13 @@ class DataPreprocessorOUS(DataPreprocessor):
             "synthetic": "bool",
             "triage_impression_during_call": "str",
             "time_call_received": "str",
-            "time_call_answered": "str",
-            "time_ambulance_notified": "str",
-            "time_dispatch": "str",
-            "time_arrival_scene": "str",
-            "time_departure_scene": "str",
-            "time_arrival_hospital": "str",
-            "time_available": "str",
+            "time_incident_created": "str",
+            "time_resource_appointed": "str",
+            "time_ambulance_dispatch_to_scene": "str",
+            "time_ambulance_arrived_at_scene": "str",
+            "time_ambulance_dispatch_to_hospital": "str",
+            "time_ambulance_arrived_at_hospital": "str",
+            "time_ambulance_available": "str",
             "response_time_sec": "float32",
             "longitude": "float32",
             "latitude": "float32",
@@ -902,13 +902,13 @@ class DataPreprocessorOUS(DataPreprocessor):
             "synthetic": [],
             "triage_impression_during_call": [],
             "time_call_received": [],
-            "time_call_answered": [],
-            "time_ambulance_notified": [],
-            "time_dispatch": [],
-            "time_arrival_scene": [],
-            "time_departure_scene": [],
-            "time_arrival_hospital": [],
-            "time_available": [],
+            "time_incident_created": [],
+            "time_resource_appointed": [],
+            "time_ambulance_dispatch_to_scene": [],
+            "time_ambulance_arrived_at_scene": [],
+            "time_ambulance_dispatch_to_hospital": [],
+            "time_ambulance_arrived_at_hospital": [],
+            "time_ambulance_available": [],
             "response_time_sec": [],
             "longitude": [],
             "latitude": [],
@@ -932,13 +932,13 @@ class DataPreprocessorOUS(DataPreprocessor):
             row_data["synthetic"].append(False)
             row_data["triage_impression_during_call"].append(row["hastegrad"])
             row_data["time_call_received"].append(row["tidspunkt"])
-            row_data["time_call_answered"].append(row["tiltak_opprettet"])
-            row_data["time_ambulance_notified"].append(row["varslet"])
-            row_data["time_dispatch"].append(row["rykker_ut"])
-            row_data["time_arrival_scene"].append(row["ank_hentested"])
-            row_data["time_departure_scene"].append(row["avg_hentested"])
-            row_data["time_arrival_hospital"].append(row["ank_levsted"])
-            row_data["time_available"].append(row["ledig"])
+            row_data["time_incident_created"].append(row["tiltak_opprettet"])
+            row_data["time_resource_appointed"].append(row["varslet"])
+            row_data["time_ambulance_dispatch_to_scene"].append(row["rykker_ut"])
+            row_data["time_ambulance_arrived_at_scene"].append(row["ank_hentested"])
+            row_data["time_ambulance_dispatch_to_hospital"].append(row["avg_hentested"])
+            row_data["time_ambulance_arrived_at_hospital"].append(row["ank_levsted"])
+            row_data["time_ambulance_available"].append(row["ledig"])
             # get response time
             row["tidspunkt"] = pd.to_datetime(row["tidspunkt"], format="%Y.%m.%dT%H:%M:%S")
             row["ank_hentested"] = pd.to_datetime(row["ank_hentested"], format="%Y.%m.%dT%H:%M:%S")
@@ -1093,11 +1093,11 @@ class DataPreprocessorOUS(DataPreprocessor):
         # load processed dataset
         df_incidents = pd.read_csv(self._processed_incidents_data_path, low_memory=False)
         # drop rows with NaN values
-        df_incidents.dropna(subset=["time_available", "time_dispatch", "triage_impression_during_call", "time_ambulance_notified", "region"], inplace=True)
-        # drop rows where time_arrival_scene or time_departure_scene does not exist, but time_arrival_hospital exists
-        mask1 = df_incidents["time_arrival_scene"].isna() & df_incidents["time_arrival_hospital"].notna()
-        mask2 = df_incidents["time_departure_scene"].isna() & df_incidents["time_arrival_hospital"].notna()
-        mask3 = df_incidents["time_departure_scene"].notna() & df_incidents["time_arrival_hospital"].isna()
+        df_incidents.dropna(subset=["time_ambulance_available", "time_ambulance_dispatch_to_scene", "triage_impression_during_call", "time_resource_appointed", "region"], inplace=True)
+        # drop rows where time_ambulance_arrived_at_scene or time_ambulance_dispatch_to_hospital does not exist, but time_ambulance_arrived_at_hospital exists
+        mask1 = df_incidents["time_ambulance_arrived_at_scene"].isna() & df_incidents["time_ambulance_arrived_at_hospital"].notna()
+        mask2 = df_incidents["time_ambulance_dispatch_to_hospital"].isna() & df_incidents["time_ambulance_arrived_at_hospital"].notna()
+        mask3 = df_incidents["time_ambulance_dispatch_to_hospital"].notna() & df_incidents["time_ambulance_arrived_at_hospital"].isna()
         df_incidents = df_incidents[~(mask1 | mask2 | mask3)]
         # drop rows with 'Moderate Priority' or 'Scheduled'
         df_incidents = df_incidents.query('triage_impression_during_call not in ["V1", "V2"]').copy()
@@ -1167,9 +1167,9 @@ class DataLoader:
 def fix_timeframes(df_incidents: pd.DataFrame) -> pd.DataFrame:
     # convert time columns to datetime format
     time_columns = [
-        'time_call_received', 'time_call_answered', 'time_ambulance_notified',
-        'time_dispatch', 'time_arrival_scene', 'time_departure_scene',
-        'time_arrival_hospital', 'time_available'
+        'time_call_received', 'time_incident_created', 'time_resource_appointed',
+        'time_ambulance_dispatch_to_scene', 'time_ambulance_arrived_at_scene', 'time_ambulance_dispatch_to_hospital',
+        'time_ambulance_arrived_at_hospital', 'time_ambulance_available'
     ]
     df_incidents[time_columns] = df_incidents[time_columns].apply(pd.to_datetime, errors='coerce', format="%Y.%m.%dT%H:%M:%S")
 
@@ -1190,7 +1190,7 @@ def fix_timeframes(df_incidents: pd.DataFrame) -> pd.DataFrame:
             df_incidents.loc[incorrect_order_mask, col2] = df_incidents.loc[incorrect_order_mask, col1] + pd.Timedelta(seconds=median_time_diff)
             df_incidents.loc[incorrect_order_mask, 'synthetic'] = True
     # recalculate response time
-    df_incidents['response_time_sec'] = (df_incidents['time_arrival_scene'] - df_incidents['time_call_received']).dt.total_seconds()
+    df_incidents['response_time_sec'] = (df_incidents['time_ambulance_arrived_at_scene'] - df_incidents['time_call_received']).dt.total_seconds()
 
     # convert time columns back to string format if needed
     df_incidents[time_columns] = df_incidents[time_columns].map(lambda x: x.strftime('%Y.%m.%dT%H:%M:%S') if not pd.isnull(x) else '')
