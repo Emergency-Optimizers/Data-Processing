@@ -3,6 +3,7 @@ import constants
 import pandas as pd
 import matplotlib.dates
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 def incidents_over_years(dataframe: pd.DataFrame, figsize: tuple[float, float] = [12, 6], limit_left: str = None, limit_right: str = None):
@@ -77,7 +78,8 @@ def plot_time_difference_distribution(
     column_start: str,
     column_end: str,
     triage_impression: str = None,
-    log_scale: bool = False
+    log_scale: bool = False,
+    cancelled: bool = False
 ):
     """
     Plots the distribution of time differences in seconds between two datetime columns,
@@ -92,25 +94,28 @@ def plot_time_difference_distribution(
     valid_rows = dataframe[column_start].notnull() & dataframe[column_end].notnull()
     if triage_impression is not None:
         valid_rows &= (dataframe["triage_impression_during_call"] != triage_impression)
+    
+    if cancelled:
+        valid_rows &= (dataframe["time_ambulance_dispatch_to_hospital"].isna())
 
     # calculate time difference in seconds only for rows without None/NaT values
-    time_diffs = (dataframe.loc[valid_rows, column_end] - dataframe.loc[valid_rows, column_start]).dt.total_seconds()
+    time_diffs = (dataframe.loc[valid_rows, column_end] - dataframe.loc[valid_rows, column_start]).dt.total_seconds() / 60
 
     # plot the distribution of time differences
     matplotlib.pyplot.figure(figsize=(10, 6))
     matplotlib.pyplot.hist(time_diffs, bins=100, color="blue", edgecolor="black", alpha=0.7, log=log_scale)
 
     matplotlib.pyplot.title(f"Distribution of Time Differences ({column_start} to {column_end})")
-    matplotlib.pyplot.xlabel("Time Difference in Seconds")
+    matplotlib.pyplot.xlabel("Time Difference in Minutes")
     matplotlib.pyplot.ylabel("Frequency" if not log_scale else "Log(Frequency)")
     matplotlib.pyplot.grid(True)
     matplotlib.pyplot.show()
 
-    print(f"Mean time difference: {time_diffs.mean()} seconds")
-    print(f"Median time difference: {time_diffs.median()} seconds")
-    print(f"Standard deviation of time difference: {time_diffs.std()} seconds")
-    print(f"Maximum time difference: {time_diffs.max()} seconds")
-    print(f"Minimum time difference: {time_diffs.min()} seconds")
+    print(f"Mean time difference: {time_diffs.mean()} minutes")
+    print(f"Median time difference: {time_diffs.median()} minutes")
+    print(f"Standard deviation of time difference: {time_diffs.std()} minutes")
+    print(f"Maximum time difference: {time_diffs.max()} minutes")
+    print(f"Minimum time difference: {time_diffs.min()} minutes")
 
 
 def boxplot_time_at_steps(

@@ -603,6 +603,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         z_score_threshold: float = 3,
         IQR_multiplier: float = 1.5,
         bounds_to_use: str = "z",
+        cancelled: bool = False,
         verbose: bool = False
     ) -> pd.DataFrame:
         keep_mask = pd.Series(True, index=dataframe.index)
@@ -610,6 +611,9 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         valid_rows = dataframe[column_start].notnull() & dataframe[column_end].notnull()
         if triage_impression != None:
             valid_rows &= (dataframe["triage_impression_during_call"] != triage_impression)
+    
+        if cancelled:
+            valid_rows &= (dataframe["time_ambulance_dispatch_to_hospital"].isna())
 
         time_diffs = (dataframe.loc[valid_rows, column_end] - dataframe.loc[valid_rows, column_start]).dt.total_seconds()
 
@@ -634,6 +638,9 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         valid_rows = dataframe[column_start].notnull() & dataframe[column_end].notnull()
         if triage_impression != None:
             valid_rows &= (dataframe["triage_impression_during_call"] != triage_impression)
+    
+        if cancelled:
+            valid_rows &= (dataframe["time_ambulance_dispatch_to_hospital"].isna())
 
         time_diffs = (dataframe.loc[valid_rows, column_end] - dataframe.loc[valid_rows, column_start]).dt.total_seconds()
 
