@@ -114,10 +114,10 @@ def get_cell_corners(easting: int, northing: int, cell_size=1000) -> list[tuple[
     north_west_easting, north_west_northing = south_west_easting, south_west_northing + cell_size
 
     corners = [
-        utm_to_geographic(south_west_easting, south_west_northing),
-        utm_to_geographic(south_east_easting, south_east_northing),
-        utm_to_geographic(north_east_easting, north_east_northing),
-        utm_to_geographic(north_west_easting, north_west_northing),
+        utm_to_geographic(south_west_easting, south_west_northing)[::-1],
+        utm_to_geographic(south_east_easting, south_east_northing)[::-1],
+        utm_to_geographic(north_east_easting, north_east_northing)[::-1],
+        utm_to_geographic(north_west_easting, north_west_northing)[::-1],
     ]
     return corners
 
