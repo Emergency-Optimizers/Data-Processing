@@ -209,20 +209,34 @@ class OriginDestination:
 
         self.graph = osmnx.project_graph(self.graph, to_crs=self.utm_epsg)
 
-    def set_graph_weights(self):
-        speeds_normal = {
-            30: 26.9,
-            40: 45.4,
-            50: 67.6,
-            60: 85.8,
-            70: 91.8,
-            80: 104.2,
-            90: 112.1,
-            100: 120.0,
-            110: 128.45,
-            120: 136.9
-        }
-        INTERSECTION_PENALTY = 10
+    def set_graph_weights(self, intersection_penalty=10, secret_scary_factor=0.65, use_ambulance_speeds=True):
+
+        if use_ambulance_speeds:
+            speeds_normal = {
+                30: 26.9,
+                40: 45.4,
+                50: 67.6,
+                60: 85.8,
+                70: 91.8,
+                80: 104.2,
+                90: 112.1,
+                100: 120.0,
+                110: 128.45,
+                120: 136.9
+            }
+        else:
+            speeds_normal = {
+                30: 30,
+                40: 40,
+                50: 50,
+                60: 60,
+                70: 70,
+                80: 80,
+                90: 90,
+                100: 100,
+                110: 110,
+                120: 120
+            }
 
         for u, v, data in self.graph.edges(data=True):
             if "maxspeed" in data and data["maxspeed"] != "NO:urban":
@@ -232,13 +246,13 @@ class OriginDestination:
                 else:
                     speed_limit = speeds_normal.get(int(data["maxspeed"]), int(data["maxspeed"]))
 
-                avg_speed = speed_limit * 0.65
+                avg_speed = speed_limit * secret_scary_factor
             else:
                 avg_speed = 50
 
             data["time"] = data["length"] / (avg_speed * 1000/60)
 
             if "junction" in self.graph.nodes[u] or "highway" in self.graph.nodes[u] and self.graph.nodes[u]["highway"] == "traffic_signals":
-                data["time"] += INTERSECTION_PENALTY / 60
+                data["time"] += intersection_penalty / 60
             if "junction" in self.graph.nodes[v] or "highway" in self.graph.nodes[v] and self.graph.nodes[v]["highway"] == "traffic_signals":
-                data["time"] += INTERSECTION_PENALTY / 60
+                data["time"] += intersection_penalty / 60
