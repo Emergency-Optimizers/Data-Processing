@@ -516,9 +516,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             dataframe,
             "time_call_received",
             "time_incident_created",
-            triage_impression=None,
+            triage_impression="A",
             z_score_threshold=3,
-            IQR_multiplier=1.5,
             bounds_to_use="z"
         )
 
@@ -526,9 +525,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             dataframe,
             "time_incident_created",
             "time_resource_appointed",
-            triage_impression=None,
+            triage_impression="A",
             z_score_threshold=3,
-            IQR_multiplier=1.5,
             bounds_to_use="z"
         )
 
@@ -536,9 +534,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             dataframe,
             "time_resource_appointed",
             "time_ambulance_dispatch_to_scene",
-            triage_impression=None,
+            triage_impression="A",
             z_score_threshold=3,
-            IQR_multiplier=1.5,
             bounds_to_use="z"
         )
 
@@ -546,9 +543,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             dataframe,
             "time_ambulance_dispatch_to_scene",
             "time_ambulance_arrived_at_scene",
-            triage_impression=None,
+            triage_impression="A",
             z_score_threshold=3,
-            IQR_multiplier=1.5,
             bounds_to_use="z"
         )
 
@@ -556,9 +552,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             dataframe,
             "time_ambulance_arrived_at_scene",
             "time_ambulance_dispatch_to_hospital",
-            triage_impression=None,
+            triage_impression="A",
             z_score_threshold=3,
-            IQR_multiplier=1.5,
             bounds_to_use="z"
         )
 
@@ -566,9 +561,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             dataframe,
             "time_ambulance_dispatch_to_hospital",
             "time_ambulance_arrived_at_hospital",
-            triage_impression=None,
+            triage_impression="A",
             z_score_threshold=3,
-            IQR_multiplier=1.5,
             bounds_to_use="z"
         )
 
@@ -576,19 +570,166 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             dataframe,
             "time_ambulance_arrived_at_hospital",
             "time_ambulance_available",
-            triage_impression=None,
+            triage_impression="A",
             z_score_threshold=3,
-            IQR_multiplier=1.5,
             bounds_to_use="z"
         )
 
         dataframe = self._drop_outside_bounds(
             dataframe,
-            "time_call_received",
+            "time_ambulance_arrived_at_scene",
             "time_ambulance_available",
-            triage_impression=None,
+            cancelled=True,
+            triage_impression="A",
             z_score_threshold=3,
-            IQR_multiplier=1.5,
+            bounds_to_use="z"
+        )
+        
+        # H incidents       
+        dataframe = self._drop_outside_bounds(
+            dataframe,
+            "time_call_received",
+            "time_incident_created",
+            triage_impression="H",
+            z_score_threshold=3,
+            bounds_to_use="z"
+        )
+
+        dataframe = self._drop_outside_bounds(
+            dataframe,
+            "time_incident_created",
+            "time_resource_appointed",
+            triage_impression="H",
+            z_score_threshold=3,
+            bounds_to_use="z"
+        )
+
+        dataframe = self._drop_outside_bounds(
+            dataframe,
+            "time_resource_appointed",
+            "time_ambulance_dispatch_to_scene",
+            triage_impression="H",
+            z_score_threshold=3,
+            bounds_to_use="z"
+        )
+
+        dataframe = self._drop_outside_bounds(
+            dataframe,
+            "time_ambulance_dispatch_to_scene",
+            "time_ambulance_arrived_at_scene",
+            triage_impression="H",
+            z_score_threshold=3,
+            bounds_to_use="z"
+        )
+
+        dataframe = self._drop_outside_bounds(
+            dataframe,
+            "time_ambulance_arrived_at_scene",
+            "time_ambulance_dispatch_to_hospital",
+            triage_impression="H",
+            z_score_threshold=3,
+            bounds_to_use="z"
+        )
+
+        dataframe = self._drop_outside_bounds(
+            dataframe,
+            "time_ambulance_dispatch_to_hospital",
+            "time_ambulance_arrived_at_hospital",
+            triage_impression="H",
+            z_score_threshold=3,
+            bounds_to_use="z"
+        )
+
+        dataframe = self._drop_outside_bounds(
+            dataframe,
+            "time_ambulance_arrived_at_hospital",
+            "time_ambulance_available",
+            triage_impression="H",
+            z_score_threshold=3,
+            bounds_to_use="z"
+        )
+
+        dataframe = self._drop_outside_bounds(
+            dataframe,
+            "time_ambulance_arrived_at_scene",
+            "time_ambulance_available",
+            cancelled=True,
+            triage_impression="H",
+            z_score_threshold=3,
+            bounds_to_use="z"
+        )
+        
+        # V1 incidents
+        dataframe = self._drop_outside_bounds(
+            dataframe,
+            "time_call_received",
+            "time_incident_created",
+            triage_impression="V1",
+            z_score_threshold=3,
+            bounds_to_use="z"
+        )
+
+        dataframe = self._drop_outside_bounds(
+            dataframe,
+            "time_incident_created",
+            "time_resource_appointed",
+            triage_impression="V1",
+            z_score_threshold=3,
+            bounds_to_use="z"
+        )
+
+        dataframe = self._drop_outside_bounds(
+            dataframe,
+            "time_resource_appointed",
+            "time_ambulance_dispatch_to_scene",
+            triage_impression="V1",
+            z_score_threshold=3,
+            bounds_to_use="z"
+        )
+
+        dataframe = self._drop_outside_bounds(
+            dataframe,
+            "time_ambulance_dispatch_to_scene",
+            "time_ambulance_arrived_at_scene",
+            triage_impression="V1",
+            z_score_threshold=3,
+            bounds_to_use="z"
+        )
+
+        dataframe = self._drop_outside_bounds(
+            dataframe,
+            "time_ambulance_arrived_at_scene",
+            "time_ambulance_dispatch_to_hospital",
+            triage_impression="V1",
+            z_score_threshold=3,
+            bounds_to_use="z"
+        )
+
+        dataframe = self._drop_outside_bounds(
+            dataframe,
+            "time_ambulance_dispatch_to_hospital",
+            "time_ambulance_arrived_at_hospital",
+            triage_impression="V1",
+            z_score_threshold=3,
+            bounds_to_use="z"
+        )
+
+        dataframe = self._drop_outside_bounds(
+            dataframe,
+            "time_ambulance_arrived_at_hospital",
+            "time_ambulance_available",
+            triage_impression="V1",
+            z_score_threshold=3,
+            bounds_to_use="z"
+        )
+
+        dataframe = self._drop_outside_bounds(
+            dataframe,
+            "time_ambulance_arrived_at_scene",
+            "time_ambulance_available",
+            cancelled=True,
+            triage_impression="V1",
+            z_score_threshold=3,
             bounds_to_use="z"
         )
 
@@ -610,7 +751,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
         valid_rows = dataframe[column_start].notnull() & dataframe[column_end].notnull()
         if triage_impression != None:
-            valid_rows &= (dataframe["triage_impression_during_call"] != triage_impression)
+            valid_rows &= (dataframe["triage_impression_during_call"] == triage_impression)
     
         if cancelled:
             valid_rows &= (dataframe["time_ambulance_dispatch_to_hospital"].isna())
@@ -637,7 +778,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
         valid_rows = dataframe[column_start].notnull() & dataframe[column_end].notnull()
         if triage_impression != None:
-            valid_rows &= (dataframe["triage_impression_during_call"] != triage_impression)
+            valid_rows &= (dataframe["triage_impression_during_call"] == triage_impression)
     
         if cancelled:
             valid_rows &= (dataframe["time_ambulance_dispatch_to_hospital"].isna())

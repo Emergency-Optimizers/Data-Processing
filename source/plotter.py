@@ -94,7 +94,7 @@ def plot_time_difference_distribution(
     """
     valid_rows = dataframe[column_start].notnull() & dataframe[column_end].notnull()
     if triage_impression is not None:
-        valid_rows &= (dataframe["triage_impression_during_call"] != triage_impression)
+        valid_rows &= (dataframe["triage_impression_during_call"] == triage_impression)
     
     if cancelled:
         valid_rows &= (dataframe["time_ambulance_dispatch_to_hospital"].isna())
@@ -104,7 +104,7 @@ def plot_time_difference_distribution(
 
     # plot the distribution of time differences
     matplotlib.pyplot.figure(figsize=(12, 6))
-    matplotlib.pyplot.hist(time_diffs, bins=100, color="blue", edgecolor="black", alpha=0.7, log=log_scale)
+    matplotlib.pyplot.hist(time_diffs, bins=300, color="blue", edgecolor="black", alpha=0.7, log=log_scale)
 
     matplotlib.pyplot.title(f"Distribution of Time Differences ({column_start} to {column_end})")
     matplotlib.pyplot.xlabel("Time Difference in Minutes")
@@ -189,7 +189,7 @@ def plot_percentage_below_threshold_per_hour(
     """
     valid_rows = dataframe[column_start].notnull() & dataframe[column_end].notnull()
     if triage_impression is not None:
-        valid_rows &= (dataframe["triage_impression_during_call"] != triage_impression)
+        valid_rows &= (dataframe["triage_impression_during_call"] == triage_impression)
     
     if cancelled:
         valid_rows &= (dataframe["time_ambulance_dispatch_to_hospital"].isna())
