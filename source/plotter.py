@@ -79,7 +79,8 @@ def plot_time_difference_distribution(
     column_end: str,
     triage_impression: str = None,
     log_scale: bool = False,
-    cancelled: bool = False
+    cancelled: bool = False,
+    time_limit: bool = None
 ):
     """
     Plots the distribution of time differences in seconds between two datetime columns,
@@ -116,6 +117,10 @@ def plot_time_difference_distribution(
     print(f"Standard deviation of time difference: {time_diffs.std()} minutes")
     print(f"Maximum time difference: {time_diffs.max()} minutes")
     print(f"Minimum time difference: {time_diffs.min()} minutes")
+
+    if time_limit is not None:
+        below_limit_percentage = (time_diffs < time_limit).mean() * 100
+        print(f"Percentage of rows with time differences below {time_limit} minutes: {below_limit_percentage:.2f}%")
 
 
 def boxplot_time_at_steps(
