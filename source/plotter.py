@@ -80,7 +80,7 @@ def plot_time_difference_distribution(
     triage_impression: str = None,
     log_scale: bool = False,
     cancelled: bool = False,
-    time_limit: bool = None
+    percentage_threshold: float = None
 ):
     """
     Plots the distribution of time differences in seconds between two datetime columns,
@@ -103,7 +103,7 @@ def plot_time_difference_distribution(
     time_diffs = (dataframe.loc[valid_rows, column_end] - dataframe.loc[valid_rows, column_start]).dt.total_seconds() / 60
 
     # plot the distribution of time differences
-    matplotlib.pyplot.figure(figsize=(10, 6))
+    matplotlib.pyplot.figure(figsize=(12, 6))
     matplotlib.pyplot.hist(time_diffs, bins=100, color="blue", edgecolor="black", alpha=0.7, log=log_scale)
 
     matplotlib.pyplot.title(f"Distribution of Time Differences ({column_start} to {column_end})")
@@ -118,9 +118,9 @@ def plot_time_difference_distribution(
     print(f"Maximum time difference: {time_diffs.max()} minutes")
     print(f"Minimum time difference: {time_diffs.min()} minutes")
 
-    if time_limit is not None:
-        below_limit_percentage = (time_diffs < time_limit).mean() * 100
-        print(f"Percentage of rows with time differences below {time_limit} minutes: {below_limit_percentage:.2f}%")
+    if percentage_threshold is not None:
+        below_threshold_percentage = (time_diffs <= percentage_threshold).mean() * 100
+        print(f"Percentage of time differences below {percentage_threshold} minutes: {below_threshold_percentage:.2f}%")
 
 
 def boxplot_time_at_steps(
@@ -164,4 +164,59 @@ def boxplot_time_at_steps(
     plt.title(title)
     plt.xlabel("Time in Minutes")
     plt.xticks()
+    plt.show()
+
+
+def plot_percentage_below_threshold_per_hour(
+    dataframe: pd.DataFrame,
+    column_start: str,
+    column_end: str,
+    threshold: float,
+    triage_impression: str = None,
+    cancelled: bool = False
+):
+    """
+    Plots the percentage of time differences below a specified threshold for each hour of the day,
+    with options to filter rows based on triage impression and cancelled status.
+
+    Parameters:
+    - dataframe: pd.DataFrame containing the data.
+    - column_start: The name of the start time column.
+    - column_end: The name of the end time column.
+    - threshold: The threshold (in minutes) to calculate the percentage for.
+    - triage_impression: If not None, exclude rows with this value in the triage_impression_during_call column.
+    - cancelled: If True, only consider rows where the time from ambulance dispatch to hospital is missing.
+    """
+    valid_rows = dataframe[column_start].notnull() & dataframe[column_end].notnull()
+    if triage_impression is not None:
+        valid_rows &= (dataframe["triage_impression_during_call"] != triage_impression)
+    
+    if cancelled:
+        valid_rows &= (dataframe["time_ambulance_dispatch_to_hospital"].isna())
+
+    dataframe = dataframe[valid_rows]
+    time_diffs = (dataframe[column_end] - dataframe[column_start]).dt.total_seconds() / 60
+
+    # Extract hour from the start time
+    hours = dataframe[column_start].dt.hour
+
+    percentages = []
+    for hour in range(24):
+        # Filter time differences by hour
+        hourly_time_diffs = time_diffs[hours == hour]
+        if len(hourly_time_diffs) > 0:
+            # Calculate percentage below threshold for the hour
+            percentage_below_threshold = (hourly_time_diffs <= threshold).mean() * 100
+            percentages.append(percentage_below_threshold)
+        else:
+            percentages.append(0)
+
+    # Plotting
+    plt.figure(figsize=(12, 6))
+    plt.bar(range(24), percentages, color="skyblue", edgecolor="black")
+    plt.title(f"Percentage of Time Differences Below {threshold} Minutes for Each Hour of the Day")
+    plt.xlabel("Hour of the Day")
+    plt.ylabel("Percentage Below Threshold")
+    plt.xticks(range(24))
+    plt.grid(axis='y')
     plt.show()
