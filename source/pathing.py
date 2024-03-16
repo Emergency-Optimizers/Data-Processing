@@ -256,3 +256,60 @@ class OriginDestination:
                 data["time"] += intersection_penalty / 60
             if "junction" in self.graph.nodes[v] or "highway" in self.graph.nodes[v] and self.graph.nodes[v]["highway"] == "traffic_signals":
                 data["time"] += intersection_penalty / 60
+
+    def set_graph_weights_v2(
+        self,
+        default_intersection_penalty=10,
+        traffic_signal_penalty=15,
+        road_type_factors=None
+    ):
+        if road_type_factors is None:
+            road_type_factors = {
+                "residential": 0.75,
+                "tertiary": 0.8,
+                "secondary": 0.85,
+                "primary": 0.9,
+                "motorway": 0.95
+            }
+
+        for u, v, data in self.graph.edges(data=True):
+            road_type = data.get("highway", "unknown")
+            factor = self.get_adjustment_factor(road_type, road_type_factors, 1.0)
+
+            if "maxspeed" in data and data["maxspeed"] != "NO:urban":
+                if isinstance(data["maxspeed"], list):
+                    speed_limits = [int(s) for s in data["maxspeed"]]
+                    speed_limit = sum(speed_limits) / len(speed_limits)
+                else:
+                    speed_limit = int(data["maxspeed"])
+
+                # Apply road type specific factor if available, else use a default factor
+                avg_speed = speed_limit
+            else:
+                # Apply default speed where specific speed limits are not available
+                avg_speed = 50
+            
+            avg_speed *= factor
+
+            data["time"] = data["length"] / (avg_speed * 1000 / 60)
+
+            intersection_penalty_u = traffic_signal_penalty if "highway" in self.graph.nodes[u] and self.graph.nodes[u]["highway"] == "traffic_signals" else default_intersection_penalty
+            intersection_penalty_v = traffic_signal_penalty if "highway" in self.graph.nodes[v] and self.graph.nodes[v]["highway"] == "traffic_signals" else default_intersection_penalty
+
+            # Adjusting time for intersections
+            if "junction" in self.graph.nodes[u] or "highway" in self.graph.nodes[u]:
+                data["time"] += intersection_penalty_u / 60  # Convert penalty to minutes
+            if "junction" in self.graph.nodes[v] or "highway" in self.graph.nodes[v]:
+                data["time"] += intersection_penalty_v / 60  # Convert penalty to minutes
+
+    def get_adjustment_factor(self, road_type, road_type_factors, default_factor):
+        if isinstance(road_type, list):
+            # If road_type is a list, you can choose a strategy to handle it.
+            # This example takes the average of the factors for the types in the list.
+            factors = [road_type_factors.get(rt, default_factor) for rt in road_type]
+            if factors:
+                return sum(factors) / len(factors)
+            return default_factor
+        else:
+            # Return the factor for the single road type or the default
+            return road_type_factors.get(road_type, default_factor)
