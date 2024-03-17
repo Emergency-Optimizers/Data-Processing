@@ -12,6 +12,7 @@ import osmnx.distance
 import geopandas as gpd
 import shapely.geometry
 import gc
+import itertools
 
 
 class OriginDestination:
@@ -56,12 +57,24 @@ class OriginDestination:
             progress_bar.update(1)
             return
 
-        #self.ids = [utils.row_col_to_id(row, col)
-        #            for row in range(self.min_row, self.max_row + 1)
-        #            for col in range(self.min_col, self.max_col + 1)]
-
         self.get_graph()
-        self.set_graph_weights()
+
+        params = {
+            "default_intersection_penalty": 4,
+            "traffic_signal_penalty": 9,
+            "road_type_factors": {
+                "motorway": 0.9004725950459835,
+                "trunk": 0.9602555300158857,
+                "primary": 0.8957176686384549,
+                "secondary": 0.812242943390013,
+                "tertiary": 0.8779790728890131,
+                "unclassified": 0.7187557285185038,
+                "residential": 0.5840639670583821,
+                "living_street": 0.3375975835998158,
+            },
+        }
+        params["road_type_factors"] = self.gen_linkers(params["road_type_factors"], link_factor=0.85211506076850045)
+        self.set_graph_weights_v2(**params)
 
         central_depot_grid_id = 22620006649000
         central_depot_x, central_depot_y = utils.id_to_utm(central_depot_grid_id)
@@ -72,63 +85,41 @@ class OriginDestination:
 
         gc.collect()
 
-        progress_bar = tqdm(desc="Building OD matrix", total=self.totalGridsToProcess)
+        od_pairs = [(origin_id, destination_id) 
+                    for origin_id, destination_id in itertools.product(self.ids, repeat=2)
+                    if origin_id != destination_id]
 
-        for origin_id in self.ids:
-            origin_index = self.id_to_index[origin_id]
-            origin_node = self.get_node(origin_id)
+        batch_size = math.ceil(len(od_pairs) / 10)
+        od_batches = [od_pairs[i:i + batch_size] for i in range(0, len(od_pairs), batch_size)]
 
-            origin_nodes = []
-            destination_nodes = []
-            destination_indicies = []
+        progress_bar = tqdm(desc="Building OD matrix", total=len(od_pairs))
 
-            for destination_id in self.ids:
-                if (origin_id, destination_id) in self.has_visited:
-                    continue
-                else:
-                    self.has_visited[(origin_id, destination_id)] = True
-                    self.has_visited[(destination_id, origin_id)] = True
+        for batch in od_batches:
+            origin_nodes = [self.get_node(od_pair[0]) for od_pair in batch]
+            destination_nodes = [self.get_node(od_pair[1]) for od_pair in batch]
 
-                destination_index = self.id_to_index[destination_id]
-
-                if origin_id == destination_id:
-                    self.matrix[origin_index, destination_index] = 0
-                    continue
-
-                destination_node = self.get_node(destination_id)
-
-                if origin_node == destination_node:
-                    distance  = math.dist(utils.id_to_utm(origin_id), utils.id_to_utm(destination_id))
-                    speed_km_per_hr = 50
-                    distance_km = distance / 1000
-                    time_hr = distance_km / speed_km_per_hr
-                    travel_time = time_hr * 3600
-
-                    self.matrix[origin_index, destination_index] = travel_time
-                    self.matrix[destination_index, origin_index] = travel_time
-
-                    progress_bar.update(1)
-                    continue
-
-                origin_nodes.append(origin_node)
-                destination_nodes.append(destination_node)
-                destination_indicies.append(destination_index)
-
-            shortest_time_paths = osmnx.shortest_path(
+            shortest_paths = osmnx.shortest_path(
                 self.graph,
                 origin_nodes,
                 destination_nodes,
                 weight='time',
-                cpus=10
+                cpus=2
             )
 
-            for i, shortest_time_path in enumerate(shortest_time_paths):
-                total_travel_time = sum(self.graph[u][v][0]['time'] for u, v in zip(shortest_time_path[:-1], shortest_time_path[1:])) * 60
+            for i, path in enumerate(shortest_paths):
+                if path is None:
+                    continue
 
-                self.matrix[origin_index, destination_indicies[i]] = total_travel_time
-                self.matrix[destination_indicies[i], origin_index] = total_travel_time
+                origin_id, destination_id = batch[i]
+                origin_index = self.id_to_index[origin_id]
+                destination_index = self.id_to_index[destination_id]
 
-            progress_bar.update(len(shortest_time_paths))
+                total_travel_time = sum(self.graph[u][v][0]['time'] for u, v in zip(path[:-1], path[1:])) * 60
+                self.matrix[origin_index, destination_index] = total_travel_time
+                self.matrix[destination_index, origin_index] = total_travel_time
+
+            progress_bar.update(len(shortest_paths))
+
         self.write()
 
     def write(self):
@@ -344,3 +335,19 @@ class OriginDestination:
         else:
             # Return the factor for the single road type or the default
             return road_type_factors.get(road_type, default_factor)
+
+    def gen_linkers(self, road_type_factors, link_factor):
+        linkables = [
+            "motorway",
+            "trunk",
+            "primary",
+            "secondary",
+            "tertiary",
+        ]
+
+        for linkable in linkables:
+            if linkable in road_type_factors:
+                road_type_factors[linkable + "_link"] = road_type_factors[linkable] * link_factor
+        
+        return road_type_factors
+
