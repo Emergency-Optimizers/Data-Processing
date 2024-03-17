@@ -60,20 +60,20 @@ class OriginDestination:
         self.get_graph()
 
         params = {
-            "default_intersection_penalty": 4,
-            "traffic_signal_penalty": 9,
+            "default_intersection_penalty": 2,
+            "traffic_signal_penalty": 5,
             "road_type_factors": {
-                "motorway": 0.9004725950459835,
-                "trunk": 0.9602555300158857,
-                "primary": 0.8957176686384549,
-                "secondary": 0.812242943390013,
-                "tertiary": 0.8779790728890131,
-                "unclassified": 0.7187557285185038,
-                "residential": 0.5840639670583821,
-                "living_street": 0.3375975835998158,
+                "motorway": 0.9704026402720763,
+                "trunk": 0.9872728848094453,
+                "primary": 0.9434615680765118,
+                "secondary": 0.49062545330175955,
+                "tertiary": 0.9327873614166583,
+                "unclassified": 0.8502498894729571,
+                "residential": 0.7543590170147566,
+                "living_street": 0.8078248863334735,
             },
         }
-        params["road_type_factors"] = self.gen_linkers(params["road_type_factors"], link_factor=0.85211506076850045)
+        params["road_type_factors"] = self.gen_linkers(params["road_type_factors"], link_factor=0.2630284973443693)
         self.set_graph_weights_v2(**params)
 
         central_depot_grid_id = 22620006649000
@@ -103,7 +103,7 @@ class OriginDestination:
                 origin_nodes,
                 destination_nodes,
                 weight='time',
-                cpus=2
+                cpus=5
             )
 
             for i, path in enumerate(shortest_paths):
