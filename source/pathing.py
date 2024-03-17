@@ -261,7 +261,8 @@ class OriginDestination:
         self,
         default_intersection_penalty=10,
         traffic_signal_penalty=15,
-        road_type_factors=None
+        road_type_factors=None,
+        use_ambulance_speeds=False
     ):
         if road_type_factors is None:
             road_type_factors = {
@@ -272,16 +273,43 @@ class OriginDestination:
                 "motorway": 0.95
             }
 
+        if use_ambulance_speeds:
+            speeds_normal = {
+                30: 26.9,
+                40: 45.4,
+                50: 67.6,
+                60: 85.8,
+                70: 91.8,
+                80: 104.2,
+                90: 112.1,
+                100: 120.0,
+                110: 128.45,
+                120: 136.9
+            }
+        else:
+            speeds_normal = {
+                30: 30,
+                40: 40,
+                50: 50,
+                60: 60,
+                70: 70,
+                80: 80,
+                90: 90,
+                100: 100,
+                110: 110,
+                120: 120
+            }
+
         for u, v, data in self.graph.edges(data=True):
             road_type = data.get("highway", "unknown")
             factor = self.get_adjustment_factor(road_type, road_type_factors, 1.0)
 
             if "maxspeed" in data and data["maxspeed"] != "NO:urban":
                 if isinstance(data["maxspeed"], list):
-                    speed_limits = [int(s) for s in data["maxspeed"]]
+                    speed_limits = [speeds_normal.get(int(s), int(s)) for s in data["maxspeed"]]
                     speed_limit = sum(speed_limits) / len(speed_limits)
                 else:
-                    speed_limit = int(data["maxspeed"])
+                    speed_limit = speeds_normal.get(int(data["maxspeed"]), int(data["maxspeed"]))
 
                 # Apply road type specific factor if available, else use a default factor
                 avg_speed = speed_limit
