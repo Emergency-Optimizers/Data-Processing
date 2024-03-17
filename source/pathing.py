@@ -304,9 +304,12 @@ class OriginDestination:
 
     def get_adjustment_factor(self, road_type, road_type_factors, default_factor):
         if isinstance(road_type, list):
-            # If road_type is a list, you can choose a strategy to handle it.
-            # This example takes the average of the factors for the types in the list.
-            factors = [road_type_factors.get(rt, default_factor) for rt in road_type]
+            factors = []
+
+            for rt in road_type:
+                if rt in road_type_factors:
+                    factors.append(road_type_factors.get(rt, default_factor))
+
             if factors:
                 return sum(factors) / len(factors)
             return default_factor
