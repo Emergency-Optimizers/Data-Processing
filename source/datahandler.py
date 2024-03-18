@@ -335,7 +335,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
                 region_oslo_count = 0
                 urban_settlement_count = 0
 
-                for longitude, latitude in utils.get_cell_corners(x, y):
+                for latitude, longitude in utils.get_cell_corners(x, y):
                     if (longitude, latitude) in cached_geo_data_point:
                         region, urban_settlement = cached_geo_data_point[(longitude, latitude)]
                     else:
