@@ -292,7 +292,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             if depot_type == "stasjon":
                 new_depot_type = "Depot"
             elif depot_type == "beredskapspunkt":
-                new_depot_type = "Depot"
+                new_depot_type = "Beredskapspunkt"
             elif depot_type == "sykehus":
                 new_depot_type = "Hospital"
             
