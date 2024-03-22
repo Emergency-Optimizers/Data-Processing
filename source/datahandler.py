@@ -794,9 +794,9 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
     
     def _count_total_per_day_night_shift(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         def classify_shift(hour):
-            if 0 <= hour < 7:
+            if hour <= 6:
                 return "morning"
-            elif 7 <= hour < 22:
+            elif hour >= 7 and hour <= 18:
                 return "day"
             else:
                 return "night"
