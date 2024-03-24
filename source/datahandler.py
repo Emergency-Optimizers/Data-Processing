@@ -273,6 +273,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe_clean = self.load_clean_depots_dataframe()
 
         dataframe = pd.DataFrame()
+        dataframe["name"] = dataframe_clean["name"]
         dataframe["type"] = dataframe_clean["type"]
         dataframe["grid_id"] = 0
         dataframe["x"] = dataframe_clean["easting"]
@@ -295,6 +296,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
                 new_depot_type = "Beredskapspunkt"
             elif depot_type == "sykehus":
                 new_depot_type = "Hospital"
+            elif depot_type == "legevakt":
+                new_depot_type = "Emergency Ward"
             
             dataframe.at[index, "type"] = new_depot_type
         
@@ -794,9 +797,9 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
     
     def _count_total_per_day_night_shift(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         def classify_shift(hour):
-            if 0 <= hour < 7:
+            if hour <= 6:
                 return "morning"
-            elif 7 <= hour < 22:
+            elif hour >= 7 and hour <= 18:
                 return "day"
             else:
                 return "night"
@@ -851,6 +854,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
     
     def load_clean_depots_dataframe(self) -> pd.DataFrame:
         column_types = {
+            "name": "object",
             "type": "object",
             "easting": "int64",
             "northing": "int64"
@@ -894,6 +898,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
     
     def load_processed_depots_dataframe(self) -> pd.DataFrame:
         column_types = {
+            "name": "object",
             "type": "object",
             "grid_id": "int64",
             "x": "int64",
@@ -942,6 +947,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
     
     def load_enhanced_depots_dataframe(self) -> pd.DataFrame:
         column_types = {
+            "name": "object",
             "type": "object",
             "grid_id": "int64",
             "x": "int64",
