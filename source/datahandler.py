@@ -253,9 +253,30 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe["latitude"] = np.nan
         dataframe["region"] = None
         dataframe["urban_settlement"] = False
-        dataframe["total_morning"] = 0
-        dataframe["total_day"] = 0
-        dataframe["total_night"] = 0
+        dataframe["total_incidents_hour_0"] = 0
+        dataframe["total_incidents_hour_1"] = 0
+        dataframe["total_incidents_hour_2"] = 0
+        dataframe["total_incidents_hour_3"] = 0
+        dataframe["total_incidents_hour_4"] = 0
+        dataframe["total_incidents_hour_5"] = 0
+        dataframe["total_incidents_hour_6"] = 0
+        dataframe["total_incidents_hour_7"] = 0
+        dataframe["total_incidents_hour_8"] = 0
+        dataframe["total_incidents_hour_9"] = 0
+        dataframe["total_incidents_hour_10"] = 0
+        dataframe["total_incidents_hour_11"] = 0
+        dataframe["total_incidents_hour_12"] = 0
+        dataframe["total_incidents_hour_13"] = 0
+        dataframe["total_incidents_hour_14"] = 0
+        dataframe["total_incidents_hour_15"] = 0
+        dataframe["total_incidents_hour_16"] = 0
+        dataframe["total_incidents_hour_17"] = 0
+        dataframe["total_incidents_hour_18"] = 0
+        dataframe["total_incidents_hour_19"] = 0
+        dataframe["total_incidents_hour_20"] = 0
+        dataframe["total_incidents_hour_21"] = 0
+        dataframe["total_incidents_hour_22"] = 0
+        dataframe["total_incidents_hour_23"] = 0
 
         dataframe = dataframe.sort_values(by="time_call_received")
 
@@ -796,28 +817,38 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         return dataframe[keep_mask]
     
     def _count_total_per_day_night_shift(self, dataframe: pd.DataFrame) -> pd.DataFrame:
-        def classify_shift(hour):
-            if hour <= 6:
-                return "morning"
-            elif hour >= 7 and hour <= 18:
-                return "day"
-            else:
-                return "night"
+        # extract hour and date from 'time_call_received'
+        dataframe['hour'] = dataframe['time_call_received'].dt.hour
+        dataframe['date'] = dataframe['time_call_received'].dt.date
 
-        dataframe["shift_type"] = dataframe["time_call_received"].dt.hour.apply(classify_shift)
+        # group by date and hour, then count incidents
+        counts = dataframe.groupby(['date', 'hour']).size().reset_index(name='count')
 
-        dataframe["date"] = dataframe["time_call_received"].dt.date
+        # pivot the table to have hours as columns and counts as values
+        pivot_table = counts.pivot(index='date', columns='hour', values='count').fillna(0)
 
-        shift_counts = dataframe.groupby(["date", "shift_type"]).size().unstack(fill_value=0).reset_index()
+        # rename columns to match the existing structure
+        pivot_table.columns = [f'total_incidents_hour_{col}' for col in pivot_table.columns]
 
-        for _, row in shift_counts.iterrows():
-            date = row['date']
-            
-            dataframe.loc[dataframe['date'] == date, 'total_morning'] = row['morning']
-            dataframe.loc[dataframe['date'] == date, 'total_day'] = row['day']
-            dataframe.loc[dataframe['date'] == date, 'total_night'] = row['night']
+        # reset index to turn 'date' back into a column
+        pivot_table.reset_index(inplace=True)
 
-        dataframe.drop(columns=["shift_type", "date"], inplace=True)
+        # iterate over the columns in the pivot table to update the original dataframe
+        for column in pivot_table.columns[1:]:
+            # prepare a dictionary to map 'date' to the counts for this hour
+            update_dict = pivot_table[['date', column]].set_index('date')[column].to_dict()
+
+            # update the original dataframe
+            dataframe[column] = dataframe.apply(lambda row: update_dict.get(row['date'], 0), axis=1)
+
+        # Convert total incidents columns to nullable integer type
+        incident_columns = [f'total_incidents_hour_{i}' for i in range(24)]
+        for col in incident_columns:
+            if col in dataframe.columns:
+                dataframe[col] = dataframe[col].astype('Int64')
+
+        # drop temporary columns
+        dataframe.drop(columns=['hour', 'date'], inplace=True)
 
         return dataframe
 
@@ -881,9 +912,30 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "latitude": "float64",
             "region": "object",
             "urban_settlement": "bool",
-            "total_morning": "int64",
-            "total_day": "int64",
-            "total_night": "int64"
+            "total_incidents_hour_0": "int64",
+            "total_incidents_hour_1": "int64",
+            "total_incidents_hour_2": "int64",
+            "total_incidents_hour_3": "int64",
+            "total_incidents_hour_4": "int64",
+            "total_incidents_hour_5": "int64",
+            "total_incidents_hour_6": "int64",
+            "total_incidents_hour_7": "int64",
+            "total_incidents_hour_8": "int64",
+            "total_incidents_hour_9": "int64",
+            "total_incidents_hour_10": "int64",
+            "total_incidents_hour_11": "int64",
+            "total_incidents_hour_12": "int64",
+            "total_incidents_hour_13": "int64",
+            "total_incidents_hour_14": "int64",
+            "total_incidents_hour_15": "int64",
+            "total_incidents_hour_16": "int64",
+            "total_incidents_hour_17": "int64",
+            "total_incidents_hour_18": "int64",
+            "total_incidents_hour_19": "int64",
+            "total_incidents_hour_20": "int64",
+            "total_incidents_hour_21": "int64",
+            "total_incidents_hour_22": "int64",
+            "total_incidents_hour_23": "int64",
         }
         column_index_dates = [4, 5, 6, 7, 8, 9, 10, 11]
 
@@ -930,9 +982,30 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "latitude": "float64",
             "region": "object",
             "urban_settlement": "bool",
-            "total_morning": "int64",
-            "total_day": "int64",
-            "total_night": "int64"
+            "total_incidents_hour_0": "int64",
+            "total_incidents_hour_1": "int64",
+            "total_incidents_hour_2": "int64",
+            "total_incidents_hour_3": "int64",
+            "total_incidents_hour_4": "int64",
+            "total_incidents_hour_5": "int64",
+            "total_incidents_hour_6": "int64",
+            "total_incidents_hour_7": "int64",
+            "total_incidents_hour_8": "int64",
+            "total_incidents_hour_9": "int64",
+            "total_incidents_hour_10": "int64",
+            "total_incidents_hour_11": "int64",
+            "total_incidents_hour_12": "int64",
+            "total_incidents_hour_13": "int64",
+            "total_incidents_hour_14": "int64",
+            "total_incidents_hour_15": "int64",
+            "total_incidents_hour_16": "int64",
+            "total_incidents_hour_17": "int64",
+            "total_incidents_hour_18": "int64",
+            "total_incidents_hour_19": "int64",
+            "total_incidents_hour_20": "int64",
+            "total_incidents_hour_21": "int64",
+            "total_incidents_hour_22": "int64",
+            "total_incidents_hour_23": "int64",
         }
         column_index_dates = [4, 5, 6, 7, 8, 9, 10, 11]
 
