@@ -226,7 +226,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe = self.initialize_processed_incidents_dataframe()
         dataframe = self.add_geo_data(dataframe)
         dataframe = self._count_resources_sent(dataframe)
-        dataframe = self._count_total_per_day_night_shift(dataframe)
+        dataframe = self._count_total_per_hour_triage(dataframe)
 
         self.save_dataframe(dataframe, self._processed_incidents_data_path)
     
@@ -253,30 +253,78 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe["latitude"] = np.nan
         dataframe["region"] = None
         dataframe["urban_settlement"] = False
-        dataframe["total_incidents_hour_0"] = 0
-        dataframe["total_incidents_hour_1"] = 0
-        dataframe["total_incidents_hour_2"] = 0
-        dataframe["total_incidents_hour_3"] = 0
-        dataframe["total_incidents_hour_4"] = 0
-        dataframe["total_incidents_hour_5"] = 0
-        dataframe["total_incidents_hour_6"] = 0
-        dataframe["total_incidents_hour_7"] = 0
-        dataframe["total_incidents_hour_8"] = 0
-        dataframe["total_incidents_hour_9"] = 0
-        dataframe["total_incidents_hour_10"] = 0
-        dataframe["total_incidents_hour_11"] = 0
-        dataframe["total_incidents_hour_12"] = 0
-        dataframe["total_incidents_hour_13"] = 0
-        dataframe["total_incidents_hour_14"] = 0
-        dataframe["total_incidents_hour_15"] = 0
-        dataframe["total_incidents_hour_16"] = 0
-        dataframe["total_incidents_hour_17"] = 0
-        dataframe["total_incidents_hour_18"] = 0
-        dataframe["total_incidents_hour_19"] = 0
-        dataframe["total_incidents_hour_20"] = 0
-        dataframe["total_incidents_hour_21"] = 0
-        dataframe["total_incidents_hour_22"] = 0
-        dataframe["total_incidents_hour_23"] = 0
+        dataframe["total_A_incidents_hour_0"] = 0
+        dataframe["total_A_incidents_hour_1"] = 0
+        dataframe["total_A_incidents_hour_2"] = 0
+        dataframe["total_A_incidents_hour_3"] = 0
+        dataframe["total_A_incidents_hour_4"] = 0
+        dataframe["total_A_incidents_hour_5"] = 0
+        dataframe["total_A_incidents_hour_6"] = 0
+        dataframe["total_A_incidents_hour_7"] = 0
+        dataframe["total_A_incidents_hour_8"] = 0
+        dataframe["total_A_incidents_hour_9"] = 0
+        dataframe["total_A_incidents_hour_10"] = 0
+        dataframe["total_A_incidents_hour_11"] = 0
+        dataframe["total_A_incidents_hour_12"] = 0
+        dataframe["total_A_incidents_hour_13"] = 0
+        dataframe["total_A_incidents_hour_14"] = 0
+        dataframe["total_A_incidents_hour_15"] = 0
+        dataframe["total_A_incidents_hour_16"] = 0
+        dataframe["total_A_incidents_hour_17"] = 0
+        dataframe["total_A_incidents_hour_18"] = 0
+        dataframe["total_A_incidents_hour_19"] = 0
+        dataframe["total_A_incidents_hour_20"] = 0
+        dataframe["total_A_incidents_hour_21"] = 0
+        dataframe["total_A_incidents_hour_22"] = 0
+        dataframe["total_A_incidents_hour_23"] = 0
+        dataframe["total_H_incidents_hour_0"] = 0
+        dataframe["total_H_incidents_hour_1"] = 0
+        dataframe["total_H_incidents_hour_2"] = 0
+        dataframe["total_H_incidents_hour_3"] = 0
+        dataframe["total_H_incidents_hour_4"] = 0
+        dataframe["total_H_incidents_hour_5"] = 0
+        dataframe["total_H_incidents_hour_6"] = 0
+        dataframe["total_H_incidents_hour_7"] = 0
+        dataframe["total_H_incidents_hour_8"] = 0
+        dataframe["total_H_incidents_hour_9"] = 0
+        dataframe["total_H_incidents_hour_10"] = 0
+        dataframe["total_H_incidents_hour_11"] = 0
+        dataframe["total_H_incidents_hour_12"] = 0
+        dataframe["total_H_incidents_hour_13"] = 0
+        dataframe["total_H_incidents_hour_14"] = 0
+        dataframe["total_H_incidents_hour_15"] = 0
+        dataframe["total_H_incidents_hour_16"] = 0
+        dataframe["total_H_incidents_hour_17"] = 0
+        dataframe["total_H_incidents_hour_18"] = 0
+        dataframe["total_H_incidents_hour_19"] = 0
+        dataframe["total_H_incidents_hour_20"] = 0
+        dataframe["total_H_incidents_hour_21"] = 0
+        dataframe["total_H_incidents_hour_22"] = 0
+        dataframe["total_H_incidents_hour_23"] = 0
+        dataframe["total_V1_incidents_hour_0"] = 0
+        dataframe["total_V1_incidents_hour_1"] = 0
+        dataframe["total_V1_incidents_hour_2"] = 0
+        dataframe["total_V1_incidents_hour_3"] = 0
+        dataframe["total_V1_incidents_hour_4"] = 0
+        dataframe["total_V1_incidents_hour_5"] = 0
+        dataframe["total_V1_incidents_hour_6"] = 0
+        dataframe["total_V1_incidents_hour_7"] = 0
+        dataframe["total_V1_incidents_hour_8"] = 0
+        dataframe["total_V1_incidents_hour_9"] = 0
+        dataframe["total_V1_incidents_hour_10"] = 0
+        dataframe["total_V1_incidents_hour_11"] = 0
+        dataframe["total_V1_incidents_hour_12"] = 0
+        dataframe["total_V1_incidents_hour_13"] = 0
+        dataframe["total_V1_incidents_hour_14"] = 0
+        dataframe["total_V1_incidents_hour_15"] = 0
+        dataframe["total_V1_incidents_hour_16"] = 0
+        dataframe["total_V1_incidents_hour_17"] = 0
+        dataframe["total_V1_incidents_hour_18"] = 0
+        dataframe["total_V1_incidents_hour_19"] = 0
+        dataframe["total_V1_incidents_hour_20"] = 0
+        dataframe["total_V1_incidents_hour_21"] = 0
+        dataframe["total_V1_incidents_hour_22"] = 0
+        dataframe["total_V1_incidents_hour_23"] = 0
 
         dataframe = dataframe.sort_values(by="time_call_received")
 
@@ -409,7 +457,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe = self._remove_other_resource_types(dataframe)
         dataframe = self._count_resources_sent(dataframe)
         dataframe = self._remove_extra_resources(dataframe)
-        dataframe = self._count_total_per_day_night_shift(dataframe)
+        dataframe = self._count_total_per_hour_triage(dataframe)
         dataframe = self._remove_other_triage_impressions(dataframe)
         dataframe = self._remove_wrong_timestamps(dataframe)
         dataframe = self._fix_timestamps(dataframe)
@@ -816,39 +864,39 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
         return dataframe[keep_mask]
     
-    def _count_total_per_day_night_shift(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+    def _count_total_per_hour_triage(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         # extract hour and date from 'time_call_received'
+        dataframe['triage'] = dataframe['triage_impression_during_call'].replace(['V2', 'V'], 'V1')
         dataframe['hour'] = dataframe['time_call_received'].dt.hour
         dataframe['date'] = dataframe['time_call_received'].dt.date
 
-        # group by date and hour, then count incidents
-        counts = dataframe.groupby(['date', 'hour']).size().reset_index(name='count')
+        # Group by date, hour, and triage type, then count incidents
+        counts = dataframe.groupby(['date', 'hour', 'triage']).size().reset_index(name='count')
 
-        # pivot the table to have hours as columns and counts as values
-        pivot_table = counts.pivot(index='date', columns='hour', values='count').fillna(0)
+        # Pivot the table to have hours as columns, triage types as part of the column names, and counts as values
+        pivot_table = counts.pivot_table(index='date', columns=['triage', 'hour'], values='count').fillna(0)
 
-        # rename columns to match the existing structure
-        pivot_table.columns = [f'total_incidents_hour_{col}' for col in pivot_table.columns]
+        # Create new column names based on triage type and hour
+        pivot_table.columns = [f"total_{triage}_incidents_hour_{hour}" for triage, hour in pivot_table.columns]
 
-        # reset index to turn 'date' back into a column
+        # Reset index to turn 'date' back into a column
         pivot_table.reset_index(inplace=True)
 
-        # iterate over the columns in the pivot table to update the original dataframe
-        for column in pivot_table.columns[1:]:
-            # prepare a dictionary to map 'date' to the counts for this hour
+        # Update the original dataframe
+        for column in pivot_table.columns[1:]:  # Skip the 'date' column
+            # Prepare a dictionary to map 'date' to the counts for this triage type and hour
             update_dict = pivot_table[['date', column]].set_index('date')[column].to_dict()
-
-            # update the original dataframe
+            
+            # Update the original dataframe with the counts for each triage type per hour
             dataframe[column] = dataframe.apply(lambda row: update_dict.get(row['date'], 0), axis=1)
 
         # Convert total incidents columns to nullable integer type
-        incident_columns = [f'total_incidents_hour_{i}' for i in range(24)]
+        incident_columns = [col for col in dataframe.columns if col.startswith('total_')]
         for col in incident_columns:
-            if col in dataframe.columns:
-                dataframe[col] = dataframe[col].astype('Int64')
+            dataframe[col] = dataframe[col].astype('Int64')
 
-        # drop temporary columns
-        dataframe.drop(columns=['hour', 'date'], inplace=True)
+        # Drop temporary columns
+        dataframe.drop(columns=['triage', 'hour', 'date'], inplace=True)
 
         return dataframe
 
@@ -912,30 +960,78 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "latitude": "float64",
             "region": "object",
             "urban_settlement": "bool",
-            "total_incidents_hour_0": "int64",
-            "total_incidents_hour_1": "int64",
-            "total_incidents_hour_2": "int64",
-            "total_incidents_hour_3": "int64",
-            "total_incidents_hour_4": "int64",
-            "total_incidents_hour_5": "int64",
-            "total_incidents_hour_6": "int64",
-            "total_incidents_hour_7": "int64",
-            "total_incidents_hour_8": "int64",
-            "total_incidents_hour_9": "int64",
-            "total_incidents_hour_10": "int64",
-            "total_incidents_hour_11": "int64",
-            "total_incidents_hour_12": "int64",
-            "total_incidents_hour_13": "int64",
-            "total_incidents_hour_14": "int64",
-            "total_incidents_hour_15": "int64",
-            "total_incidents_hour_16": "int64",
-            "total_incidents_hour_17": "int64",
-            "total_incidents_hour_18": "int64",
-            "total_incidents_hour_19": "int64",
-            "total_incidents_hour_20": "int64",
-            "total_incidents_hour_21": "int64",
-            "total_incidents_hour_22": "int64",
-            "total_incidents_hour_23": "int64",
+            "total_A_incidents_hour_0": "int64",
+            "total_A_incidents_hour_1": "int64",
+            "total_A_incidents_hour_2": "int64",
+            "total_A_incidents_hour_3": "int64",
+            "total_A_incidents_hour_4": "int64",
+            "total_A_incidents_hour_5": "int64",
+            "total_A_incidents_hour_6": "int64",
+            "total_A_incidents_hour_7": "int64",
+            "total_A_incidents_hour_8": "int64",
+            "total_A_incidents_hour_9": "int64",
+            "total_A_incidents_hour_10": "int64",
+            "total_A_incidents_hour_11": "int64",
+            "total_A_incidents_hour_12": "int64",
+            "total_A_incidents_hour_13": "int64",
+            "total_A_incidents_hour_14": "int64",
+            "total_A_incidents_hour_15": "int64",
+            "total_A_incidents_hour_16": "int64",
+            "total_A_incidents_hour_17": "int64",
+            "total_A_incidents_hour_18": "int64",
+            "total_A_incidents_hour_19": "int64",
+            "total_A_incidents_hour_20": "int64",
+            "total_A_incidents_hour_21": "int64",
+            "total_A_incidents_hour_22": "int64",
+            "total_A_incidents_hour_23": "int64",
+            "total_H_incidents_hour_0": "int64",
+            "total_H_incidents_hour_1": "int64",
+            "total_H_incidents_hour_2": "int64",
+            "total_H_incidents_hour_3": "int64",
+            "total_H_incidents_hour_4": "int64",
+            "total_H_incidents_hour_5": "int64",
+            "total_H_incidents_hour_6": "int64",
+            "total_H_incidents_hour_7": "int64",
+            "total_H_incidents_hour_8": "int64",
+            "total_H_incidents_hour_9": "int64",
+            "total_H_incidents_hour_10": "int64",
+            "total_H_incidents_hour_11": "int64",
+            "total_H_incidents_hour_12": "int64",
+            "total_H_incidents_hour_13": "int64",
+            "total_H_incidents_hour_14": "int64",
+            "total_H_incidents_hour_15": "int64",
+            "total_H_incidents_hour_16": "int64",
+            "total_H_incidents_hour_17": "int64",
+            "total_H_incidents_hour_18": "int64",
+            "total_H_incidents_hour_19": "int64",
+            "total_H_incidents_hour_20": "int64",
+            "total_H_incidents_hour_21": "int64",
+            "total_H_incidents_hour_22": "int64",
+            "total_H_incidents_hour_23": "int64",
+            "total_V1_incidents_hour_0": "int64",
+            "total_V1_incidents_hour_1": "int64",
+            "total_V1_incidents_hour_2": "int64",
+            "total_V1_incidents_hour_3": "int64",
+            "total_V1_incidents_hour_4": "int64",
+            "total_V1_incidents_hour_5": "int64",
+            "total_V1_incidents_hour_6": "int64",
+            "total_V1_incidents_hour_7": "int64",
+            "total_V1_incidents_hour_8": "int64",
+            "total_V1_incidents_hour_9": "int64",
+            "total_V1_incidents_hour_10": "int64",
+            "total_V1_incidents_hour_11": "int64",
+            "total_V1_incidents_hour_12": "int64",
+            "total_V1_incidents_hour_13": "int64",
+            "total_V1_incidents_hour_14": "int64",
+            "total_V1_incidents_hour_15": "int64",
+            "total_V1_incidents_hour_16": "int64",
+            "total_V1_incidents_hour_17": "int64",
+            "total_V1_incidents_hour_18": "int64",
+            "total_V1_incidents_hour_19": "int64",
+            "total_V1_incidents_hour_20": "int64",
+            "total_V1_incidents_hour_21": "int64",
+            "total_V1_incidents_hour_22": "int64",
+            "total_V1_incidents_hour_23": "int64",
         }
         column_index_dates = [4, 5, 6, 7, 8, 9, 10, 11]
 
@@ -982,30 +1078,78 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "latitude": "float64",
             "region": "object",
             "urban_settlement": "bool",
-            "total_incidents_hour_0": "int64",
-            "total_incidents_hour_1": "int64",
-            "total_incidents_hour_2": "int64",
-            "total_incidents_hour_3": "int64",
-            "total_incidents_hour_4": "int64",
-            "total_incidents_hour_5": "int64",
-            "total_incidents_hour_6": "int64",
-            "total_incidents_hour_7": "int64",
-            "total_incidents_hour_8": "int64",
-            "total_incidents_hour_9": "int64",
-            "total_incidents_hour_10": "int64",
-            "total_incidents_hour_11": "int64",
-            "total_incidents_hour_12": "int64",
-            "total_incidents_hour_13": "int64",
-            "total_incidents_hour_14": "int64",
-            "total_incidents_hour_15": "int64",
-            "total_incidents_hour_16": "int64",
-            "total_incidents_hour_17": "int64",
-            "total_incidents_hour_18": "int64",
-            "total_incidents_hour_19": "int64",
-            "total_incidents_hour_20": "int64",
-            "total_incidents_hour_21": "int64",
-            "total_incidents_hour_22": "int64",
-            "total_incidents_hour_23": "int64",
+            "total_A_incidents_hour_0": "int64",
+            "total_A_incidents_hour_1": "int64",
+            "total_A_incidents_hour_2": "int64",
+            "total_A_incidents_hour_3": "int64",
+            "total_A_incidents_hour_4": "int64",
+            "total_A_incidents_hour_5": "int64",
+            "total_A_incidents_hour_6": "int64",
+            "total_A_incidents_hour_7": "int64",
+            "total_A_incidents_hour_8": "int64",
+            "total_A_incidents_hour_9": "int64",
+            "total_A_incidents_hour_10": "int64",
+            "total_A_incidents_hour_11": "int64",
+            "total_A_incidents_hour_12": "int64",
+            "total_A_incidents_hour_13": "int64",
+            "total_A_incidents_hour_14": "int64",
+            "total_A_incidents_hour_15": "int64",
+            "total_A_incidents_hour_16": "int64",
+            "total_A_incidents_hour_17": "int64",
+            "total_A_incidents_hour_18": "int64",
+            "total_A_incidents_hour_19": "int64",
+            "total_A_incidents_hour_20": "int64",
+            "total_A_incidents_hour_21": "int64",
+            "total_A_incidents_hour_22": "int64",
+            "total_A_incidents_hour_23": "int64",
+            "total_H_incidents_hour_0": "int64",
+            "total_H_incidents_hour_1": "int64",
+            "total_H_incidents_hour_2": "int64",
+            "total_H_incidents_hour_3": "int64",
+            "total_H_incidents_hour_4": "int64",
+            "total_H_incidents_hour_5": "int64",
+            "total_H_incidents_hour_6": "int64",
+            "total_H_incidents_hour_7": "int64",
+            "total_H_incidents_hour_8": "int64",
+            "total_H_incidents_hour_9": "int64",
+            "total_H_incidents_hour_10": "int64",
+            "total_H_incidents_hour_11": "int64",
+            "total_H_incidents_hour_12": "int64",
+            "total_H_incidents_hour_13": "int64",
+            "total_H_incidents_hour_14": "int64",
+            "total_H_incidents_hour_15": "int64",
+            "total_H_incidents_hour_16": "int64",
+            "total_H_incidents_hour_17": "int64",
+            "total_H_incidents_hour_18": "int64",
+            "total_H_incidents_hour_19": "int64",
+            "total_H_incidents_hour_20": "int64",
+            "total_H_incidents_hour_21": "int64",
+            "total_H_incidents_hour_22": "int64",
+            "total_H_incidents_hour_23": "int64",
+            "total_V1_incidents_hour_0": "int64",
+            "total_V1_incidents_hour_1": "int64",
+            "total_V1_incidents_hour_2": "int64",
+            "total_V1_incidents_hour_3": "int64",
+            "total_V1_incidents_hour_4": "int64",
+            "total_V1_incidents_hour_5": "int64",
+            "total_V1_incidents_hour_6": "int64",
+            "total_V1_incidents_hour_7": "int64",
+            "total_V1_incidents_hour_8": "int64",
+            "total_V1_incidents_hour_9": "int64",
+            "total_V1_incidents_hour_10": "int64",
+            "total_V1_incidents_hour_11": "int64",
+            "total_V1_incidents_hour_12": "int64",
+            "total_V1_incidents_hour_13": "int64",
+            "total_V1_incidents_hour_14": "int64",
+            "total_V1_incidents_hour_15": "int64",
+            "total_V1_incidents_hour_16": "int64",
+            "total_V1_incidents_hour_17": "int64",
+            "total_V1_incidents_hour_18": "int64",
+            "total_V1_incidents_hour_19": "int64",
+            "total_V1_incidents_hour_20": "int64",
+            "total_V1_incidents_hour_21": "int64",
+            "total_V1_incidents_hour_22": "int64",
+            "total_V1_incidents_hour_23": "int64",
         }
         column_index_dates = [4, 5, 6, 7, 8, 9, 10, 11]
 
