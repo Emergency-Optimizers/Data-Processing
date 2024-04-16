@@ -125,7 +125,8 @@ def plot_time_difference_distribution(
 
 def boxplot_time_at_steps(
     dataframe: pd.DataFrame,
-    triage_impression: str = None
+    triage_impression: str = None,
+    bounds: tuple[str, str] = None
 ):
     title = "Time Taken At Each Step of the Incident"
 
@@ -136,6 +137,11 @@ def boxplot_time_at_steps(
     else:
         # Use the original dataframe if no triage_impression filter is applied
         temp_df = dataframe.copy()
+    
+    if bounds is not None:
+        # Convert string bounds to datetime if they're not already
+        start_bound, end_bound = pd.to_datetime(bounds[0]), pd.to_datetime(bounds[1])
+        temp_df = temp_df[(temp_df['time_call_received'] >= start_bound) & (temp_df['time_call_received'] <= end_bound)]
 
     steps = {
         "Creating Incident": ("time_call_received", "time_incident_created"),
