@@ -125,51 +125,83 @@ def plot_time_difference_distribution(
 
 def boxplot_time_at_steps(
     dataframe: pd.DataFrame,
-    triage_impression: str = None,
-    bounds: tuple[str, str] = None
+    triage_impressions: list = None,
+    bounds: tuple[str, str] = None,
+    group_width: float = 1.3,
+    step_gap: float = 0.8,
+    margin: float = 0.1
 ):
-    title = "Time Taken At Each Step of the Incident"
+    title = "Time Taken At Each Step of the Incident by Triage Category"
+    triage_types = ["A", "H", "V1"][::-1]
+    triage_colors = {"A": "red", "H": "blue", "V1": "green"}
 
-    if triage_impression is not None:
-        # Filter the dataframe without overwriting the original one
-        temp_df = dataframe[dataframe["triage_impression_during_call"] == triage_impression].copy()
-        title += f" ({triage_impression})"
-    else:
-        # Use the original dataframe if no triage_impression filter is applied
-        temp_df = dataframe.copy()
-    
     if bounds is not None:
-        # Convert string bounds to datetime if they're not already
         start_bound, end_bound = pd.to_datetime(bounds[0]), pd.to_datetime(bounds[1])
-        temp_df = temp_df[(temp_df['time_call_received'] >= start_bound) & (temp_df['time_call_received'] <= end_bound)]
+        df_filtered = dataframe[(dataframe['time_call_received'] >= start_bound) &
+                                (dataframe['time_call_received'] <= end_bound)].copy()
+    else:
+        df_filtered = dataframe.copy()
 
     steps = {
-        "Creating Incident": ("time_call_received", "time_incident_created"),
-        "Appointing Resource": ("time_incident_created", "time_resource_appointed"),
-        "Resource to Start Task": ("time_resource_appointed", "time_ambulance_dispatch_to_scene"),
-        "Dispatching to Scene": ("time_ambulance_dispatch_to_scene", "time_ambulance_arrived_at_scene"),
-        "At Scene": ("time_ambulance_arrived_at_scene", "time_ambulance_dispatch_to_hospital", "time_ambulance_available"),
+        "At Hospital": ("time_ambulance_arrived_at_hospital", "time_ambulance_available"),
         "Dispatching to Hospital": ("time_ambulance_dispatch_to_hospital", "time_ambulance_arrived_at_hospital"),
-        "At Hospital": ("time_ambulance_arrived_at_hospital", "time_ambulance_available")
+        "At Scene": ("time_ambulance_arrived_at_scene", "time_ambulance_dispatch_to_hospital", "time_ambulance_available"),
+        "Dispatching to Scene": ("time_ambulance_dispatch_to_scene", "time_ambulance_arrived_at_scene"),
+        "Resource to Start Task": ("time_resource_appointed", "time_ambulance_dispatch_to_scene"),
+        "Appointing Resource": ("time_incident_created", "time_resource_appointed"),
+        "Creating Incident": ("time_call_received", "time_incident_created"),
     }
 
-    # Calculating durations for each step
+    plt.figure(figsize=(12, 8))
+
+    position = 0  # Initial position for the first group
+    ytick_positions = []  # To store ytick positions for labeling
+    handles = []  # To store handles for the legend
+    displayed_triage_types = []
+
     for step, times in steps.items():
-        if len(times) == 3:  # Special handling for "At scene"
-            temp_df.loc[temp_df[times[1]].isna(), step] = (temp_df[times[2]] - temp_df[times[0]]).dt.total_seconds() / 60
-            temp_df.loc[~temp_df[times[1]].isna(), step] = (temp_df[times[1]] - temp_df[times[0]]).dt.total_seconds() / 60
-        else:
-            temp_df[step] = (temp_df[times[1]] - temp_df[times[0]]).dt.total_seconds() / 60
+        data_for_step = []  # Collects all boxplots' data for current step
+        positions = [position + i * ((group_width + margin) / len(triage_types)) for i in range(len(triage_types))]
+        ytick_positions.append(sum(positions) / len(positions))  # Middle position for labels
+        triage_types_used = []
 
-    # Adjust plot data creation
-    plot_data = [temp_df[step] for step in steps if step not in ["Dispatching to Hospital", "At Hospital"]] + [temp_df[step].dropna() for step in steps if step in ["Dispatching to Hospital", "At Hospital"]]
+        for i, triage in enumerate(triage_types):
+            if triage_impressions is not None and triage not in triage_impressions:
+                continue
+            else:
+                triage_types_used.append(triage)
 
-    # Plotting
-    plt.figure(figsize=(8, 4))
-    plt.boxplot(plot_data[::-1], labels=list(steps.keys())[::-1], vert=False, patch_artist=True, showfliers=False)
+            temp_df = df_filtered[df_filtered["triage_impression_during_call"] == triage].copy()
+            if len(times) == 3:
+                temp_df.loc[temp_df[times[1]].isna(), 'Duration'] = (temp_df[times[2]] - temp_df[times[0]]).dt.total_seconds() / 60
+                temp_df.loc[~temp_df[times[1]].isna(), 'Duration'] = (temp_df[times[1]] - temp_df[times[0]]).dt.total_seconds() / 60
+            else:
+                temp_df.loc[:, 'Duration'] = (temp_df[times[1]] - temp_df[times[0]]).dt.total_seconds() / 60
+            data_for_step.append(temp_df['Duration'].dropna())
+            displayed_triage_types.append(triage)
+
+        # Plotting each triage type for the current step
+        for i, data in enumerate(data_for_step):
+            box = plt.boxplot(
+                data,
+                positions=[positions[i]],
+                widths=group_width / len(triage_types) - margin,
+                patch_artist=True,
+                vert=False,
+                boxprops=dict(facecolor=triage_colors[triage_types_used[i]]),
+                showfliers=False
+            )
+            if step == list(steps.keys())[0]:  # Only add to legend once per triage type displayed
+                handles.append(box["boxes"][0])
+
+        position += group_width + step_gap
+
+    # Customizing the plot
     plt.title(title)
     plt.xlabel("Time in Minutes")
-    plt.xticks()
+    plt.yticks(ytick_positions, [f"{step}" for step in steps])
+    plt.legend(handles, list(dict.fromkeys(displayed_triage_types)), title="Triage", loc="upper right")
+    plt.tight_layout()
     plt.show()
 
 
