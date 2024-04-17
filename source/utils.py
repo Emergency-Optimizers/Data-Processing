@@ -179,3 +179,13 @@ def time_difference_lower_upper_bounds(
         print(f"Suggested Z-Score lower bound for dropping rows: {round(z_lower_bound, 2)} seconds")
 
     return [z_lower_bound, z_upper_bound], [iqr_lower_bound, iqr_upper_bound]
+
+
+def get_values_within_radius(utm_to_value: dict, target_utm: tuple[int, int], distance_km: float) -> int:
+    total_pop = 0
+
+    for utm, population in utm_to_value.items():
+        if (math.dist(utm, target_utm) <= (distance_km * 1000)):
+            total_pop += population
+
+    return total_pop

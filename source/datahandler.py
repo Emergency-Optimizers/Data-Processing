@@ -335,6 +335,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe = self.convert_depot_types(dataframe)
         dataframe = self.add_grid_id(dataframe)
         dataframe = self.add_geo_data(dataframe)
+        dataframe = self._add_population_data(dataframe, use_enhanced=False)
 
         self.save_dataframe(dataframe, self._processed_depots_data_path)
     
@@ -351,6 +352,10 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe["latitude"] = np.nan
         dataframe["region"] = None
         dataframe["urban_settlement"] = False
+        dataframe["total_population_radius_2km"] = 0
+        dataframe["total_population_radius_5km"] = 0
+        dataframe["total_incidents_radius_2km"] = 0
+        dataframe["total_incidents_radius_5km"] = 0
 
         return dataframe
     
@@ -446,6 +451,28 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             dataframe.at[index, "region"] = region
             dataframe.at[index, "urban_settlement"] = urban_settlement
         
+        return dataframe
+
+    def _add_population_data(self, dataframe: pd.DataFrame, use_enhanced: bool) -> pd.DataFrame:
+        clean_incidents_df = self.load_clean_incidents_dataframe()
+        clean_incidents_df = clean_incidents_df.drop_duplicates(subset="ssbid1000M")
+        utm_to_population = {tuple(x + 500 for x in utils.id_to_utm(grid_id)): pop for grid_id, pop in zip(clean_incidents_df["ssbid1000M"], clean_incidents_df["popTot"])}
+
+        if use_enhanced:
+            incidents_df = self.load_enhanced_incidents_dataframe()
+        else:
+            incidents_df = self.load_processed_incidents_dataframe()
+
+        grid_count = incidents_df["grid_id"].value_counts()
+        utm_to_incidents = {tuple(x + 500 for x in utils.id_to_utm(grid_id)): count for grid_id, count in grid_count.items()}
+
+        for index, _ in dataframe.iterrows():
+            target_utm = (dataframe.at[index, "x"], dataframe.at[index, "y"])
+            dataframe.at[index, "total_population_radius_2km"] = utils.get_values_within_radius(utm_to_population, target_utm, distance_km=2.0)
+            dataframe.at[index, "total_population_radius_5km"] = utils.get_values_within_radius(utm_to_population, target_utm, distance_km=5.0)
+            dataframe.at[index, "total_incidents_radius_2km"] = utils.get_values_within_radius(utm_to_incidents, target_utm, distance_km=2.0)
+            dataframe.at[index, "total_incidents_radius_5km"] = utils.get_values_within_radius(utm_to_incidents, target_utm, distance_km=5.0)
+
         return dataframe
 
     def _enhance_incidents(self) -> None:
@@ -902,6 +929,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
     def _enhance_depots(self) -> None:
         dataframe = self.load_processed_depots_dataframe()
+        dataframe = self._add_population_data(dataframe, use_enhanced=True)
 
         self.save_dataframe(dataframe, self._enhanced_depots_data_path)
 
@@ -1054,7 +1082,11 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "longitude": "float64",
             "latitude": "float64",
             "region": "object",
-            "urban_settlement": "bool"
+            "urban_settlement": "bool",
+            "total_population_radius_2km": "int64",
+            "total_population_radius_5km": "int64",
+            "total_incidents_radius_2km": "int64",
+            "total_incidents_radius_5km": "int64"
         }
 
         dataframe = pd.read_csv(
@@ -1172,7 +1204,11 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "longitude": "float64",
             "latitude": "float64",
             "region": "object",
-            "urban_settlement": "bool"
+            "urban_settlement": "bool",
+            "total_population_radius_2km": "int64",
+            "total_population_radius_5km": "int64",
+            "total_incidents_radius_2km": "int64",
+            "total_incidents_radius_5km": "int64"
         }
 
         dataframe = pd.read_csv(
