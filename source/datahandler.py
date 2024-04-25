@@ -399,6 +399,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         gdf_urban_settlement_bounds = utils.get_bounds(file_paths=[os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "ssb_2021_urban_settlements_polygon_epsg4326.geojson")])
         gdf_urban_settlement_fhi_bounds = utils.get_bounds(file_paths=[os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "nonurban_municipalities.geojson")])
 
+        cached_geo_data_point = {}
         cached_geo_data_grid_id = {}
 
         for index, _ in dataframe.iterrows():
@@ -410,21 +411,48 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
                 x = dataframe.at[index, "x"]
                 y = dataframe.at[index, "y"]
 
-                longitude, latitude = utils.utm_to_geographic(x + 500, y + 500)
+                region_akershus_count = 0
+                region_oslo_count = 0
+                urban_settlement_count = 0
+                urban_settlement_count_fhi = 0
 
-                point = shapely.geometry.Point(longitude, latitude)
+                for latitude, longitude in utils.get_cell_corners(x, y):
+                    if (longitude, latitude) in cached_geo_data_point:
+                        region, urban_settlement_ssb, urban_settlement_fhi = cached_geo_data_point[(longitude, latitude)]
+                    else:
+                        point = shapely.geometry.Point(longitude, latitude)
+
+                        region = None
+                        if gdf_akershus_bounds.contains(point).any():
+                            region = "Akershus"
+                        elif gdf_oslo_bounds.contains(point).any():
+                            region = "Oslo"
+
+                        urban_settlement_ssb = gdf_urban_settlement_bounds.contains(point).any()
+                        urban_settlement_fhi = not gdf_urban_settlement_fhi_bounds.contains(point).any()
+
+                        cached_geo_data_point[(longitude, latitude)] = (region, urban_settlement_ssb, urban_settlement_fhi)
+
+                    if region == "Akershus":
+                        region_akershus_count += 1
+                    elif region == "Oslo":
+                        region_oslo_count += 1
+                        
+                    urban_settlement_count += urban_settlement_ssb
+                    urban_settlement_count_fhi += urban_settlement_fhi
                 
-                region = None
-                if gdf_akershus_bounds.contains(point).any():
-                    region = "Akershus"
-                elif gdf_oslo_bounds.contains(point).any():
+                if (region_akershus_count + region_oslo_count) == 0:
+                    region = None
+                elif region_oslo_count >= region_akershus_count:
                     region = "Oslo"
-
-                urban_settlement_ssb = gdf_urban_settlement_bounds.contains(point).any()
-                urban_settlement_fhi = not gdf_urban_settlement_fhi_bounds.contains(point).any()
+                else:
+                    region = "Akershus"
+                
+                urban_settlement_ssb = urban_settlement_count >= 1
+                urban_settlement_fhi = urban_settlement_count_fhi >= 1
 
                 cached_geo_data_grid_id[grid_id] = (longitude, latitude, region, urban_settlement_ssb, urban_settlement_fhi)
-            
+
             dataframe.at[index, "longitude"] = longitude
             dataframe.at[index, "latitude"] = latitude
             dataframe.at[index, "region"] = region
