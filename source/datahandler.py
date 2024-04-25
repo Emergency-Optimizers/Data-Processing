@@ -252,7 +252,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe["longitude"] = np.nan
         dataframe["latitude"] = np.nan
         dataframe["region"] = None
-        dataframe["urban_settlement"] = False
+        dataframe["urban_settlement_ssb"] = False
+        dataframe["urban_settlement_fhi"] = False
         dataframe["total_A_incidents_hour_0"] = 0
         dataframe["total_A_incidents_hour_1"] = 0
         dataframe["total_A_incidents_hour_2"] = 0
@@ -351,7 +352,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe["longitude"] = np.nan
         dataframe["latitude"] = np.nan
         dataframe["region"] = None
-        dataframe["urban_settlement"] = False
+        dataframe["urban_settlement_ssb"] = False
+        dataframe["urban_settlement_fhi"] = False
         dataframe["total_population_radius_2km"] = 0
         dataframe["total_population_radius_5km"] = 0
         dataframe["total_incidents_radius_2km"] = 0
@@ -395,61 +397,39 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         gdf_oslo_bounds = utils.get_bounds(file_paths=[os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "ssb_2019_oslo_polygon_epsg4326.geojson")])
         gdf_akershus_bounds = utils.get_bounds(file_paths=[os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "ssb_2019_akershus_polygon_epsg4326.geojson")])
         gdf_urban_settlement_bounds = utils.get_bounds(file_paths=[os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "ssb_2021_urban_settlements_polygon_epsg4326.geojson")])
+        gdf_urban_settlement_fhi_bounds = utils.get_bounds(file_paths=[os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "nonurban_municipalities.geojson")])
 
-        cached_geo_data_point = {}
         cached_geo_data_grid_id = {}
 
         for index, _ in dataframe.iterrows():
             grid_id = dataframe.at[index, "grid_id"]
 
             if grid_id in cached_geo_data_grid_id:
-                longitude, latitude, region, urban_settlement = cached_geo_data_grid_id[grid_id]
+                longitude, latitude, region, urban_settlement_ssb, urban_settlement_fhi = cached_geo_data_grid_id[grid_id]
             else:
                 x = dataframe.at[index, "x"]
                 y = dataframe.at[index, "y"]
 
-                region_akershus_count = 0
-                region_oslo_count = 0
-                urban_settlement_count = 0
+                longitude, latitude = utils.utm_to_geographic(x + 500, y + 500)
 
-                for latitude, longitude in utils.get_cell_corners(x, y):
-                    if (longitude, latitude) in cached_geo_data_point:
-                        region, urban_settlement = cached_geo_data_point[(longitude, latitude)]
-                    else:
-                        point = shapely.geometry.Point(longitude, latitude)
-
-                        region = None
-                        if gdf_akershus_bounds.contains(point).any():
-                            region = "Akershus"
-                        elif gdf_oslo_bounds.contains(point).any():
-                            region = "Oslo"
-
-                        urban_settlement = gdf_urban_settlement_bounds.contains(point).any()
-
-                        cached_geo_data_point[(longitude, latitude)] = (region, urban_settlement)
-
-                    if region == "Akershus":
-                        region_akershus_count += 1
-                    elif region == "Oslo":
-                        region_oslo_count += 1
-                        
-                    urban_settlement_count += urban_settlement
+                point = shapely.geometry.Point(longitude, latitude)
                 
-                if (region_akershus_count + region_oslo_count) == 0:
-                    region = None
-                elif region_oslo_count >= region_akershus_count:
-                    region = "Oslo"
-                else:
+                region = None
+                if gdf_akershus_bounds.contains(point).any():
                     region = "Akershus"
-                
-                urban_settlement = urban_settlement_count != 0
+                elif gdf_oslo_bounds.contains(point).any():
+                    region = "Oslo"
 
-                cached_geo_data_grid_id[grid_id] = (longitude, latitude, region, urban_settlement)
+                urban_settlement_ssb = gdf_urban_settlement_bounds.contains(point).any()
+                urban_settlement_fhi = not gdf_urban_settlement_fhi_bounds.contains(point).any()
+
+                cached_geo_data_grid_id[grid_id] = (longitude, latitude, region, urban_settlement_ssb, urban_settlement_fhi)
             
             dataframe.at[index, "longitude"] = longitude
             dataframe.at[index, "latitude"] = latitude
             dataframe.at[index, "region"] = region
-            dataframe.at[index, "urban_settlement"] = urban_settlement
+            dataframe.at[index, "urban_settlement_ssb"] = urban_settlement_ssb
+            dataframe.at[index, "urban_settlement_fhi"] = urban_settlement_fhi
         
         return dataframe
 
@@ -987,7 +967,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "longitude": "float64",
             "latitude": "float64",
             "region": "object",
-            "urban_settlement": "bool",
+            "urban_settlement_ssb": "bool",
+            "urban_settlement_fhi": "bool",
             "total_A_incidents_hour_0": "int64",
             "total_A_incidents_hour_1": "int64",
             "total_A_incidents_hour_2": "int64",
@@ -1082,7 +1063,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "longitude": "float64",
             "latitude": "float64",
             "region": "object",
-            "urban_settlement": "bool",
+            "urban_settlement_ssb": "bool",
+            "urban_settlement_fhi": "bool",
             "total_population_radius_2km": "int64",
             "total_population_radius_5km": "int64",
             "total_incidents_radius_2km": "int64",
@@ -1109,7 +1091,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "longitude": "float64",
             "latitude": "float64",
             "region": "object",
-            "urban_settlement": "bool",
+            "urban_settlement_ssb": "bool",
+            "urban_settlement_fhi": "bool",
             "total_A_incidents_hour_0": "int64",
             "total_A_incidents_hour_1": "int64",
             "total_A_incidents_hour_2": "int64",
@@ -1204,7 +1187,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "longitude": "float64",
             "latitude": "float64",
             "region": "object",
-            "urban_settlement": "bool",
+            "urban_settlement_ssb": "bool",
+            "urban_settlement_fhi": "bool",
             "total_population_radius_2km": "int64",
             "total_population_radius_5km": "int64",
             "total_incidents_radius_2km": "int64",
