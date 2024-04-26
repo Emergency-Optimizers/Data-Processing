@@ -9,6 +9,7 @@ from tqdm import tqdm
 from scipy.stats import norm
 import geopandas as gpd
 import shapely.geometry
+import math
 
 
 class DataPreprocessor:
@@ -358,6 +359,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe["total_population_radius_5km"] = 0
         dataframe["total_incidents_radius_2km"] = 0
         dataframe["total_incidents_radius_5km"] = 0
+        dataframe["total_population_cluster"] = 0
+        dataframe["total_incidents_cluster"] = 0
 
         return dataframe
     
@@ -480,6 +483,46 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             dataframe.at[index, "total_population_radius_5km"] = utils.get_values_within_radius(utm_to_population, target_utm, distance_km=5.0)
             dataframe.at[index, "total_incidents_radius_2km"] = utils.get_values_within_radius(utm_to_incidents, target_utm, distance_km=2.0)
             dataframe.at[index, "total_incidents_radius_5km"] = utils.get_values_within_radius(utm_to_incidents, target_utm, distance_km=5.0)
+        
+        # set cluster data
+        dataframe["total_population_cluster"] = 0
+        dataframe["total_incidents_cluster"] = 0
+
+        for incident_utm, population in utm_to_population.items():
+            min_distance = float('inf')
+            closest_depot_index = -1
+
+            for depot_index, depot in dataframe.iterrows():
+                if (depot["type"] != "Depot" and depot["type"] != "Beredskapspunkt"):
+                    continue
+
+                depot_utm = (depot["x"] + 500, depot["y"] + 500)
+
+                distance = math.dist(incident_utm, depot_utm)
+
+                if (closest_depot_index == -1 or distance < min_distance):
+                    closest_depot_index = depot_index
+                    min_distance = distance
+            
+            dataframe.at[closest_depot_index, "total_population_cluster"] += population
+        
+        for incident_utm, incidents in utm_to_incidents.items():
+            min_distance = float('inf')
+            closest_depot_index = -1
+
+            for depot_index, depot in dataframe.iterrows():
+                if (depot["type"] != "Depot" and depot["type"] != "Beredskapspunkt"):
+                    continue
+
+                depot_utm = (depot["x"] + 500, depot["y"] + 500)
+
+                distance = math.dist(incident_utm, depot_utm)
+
+                if (closest_depot_index == -1 or distance < min_distance):
+                    closest_depot_index = depot_index
+                    min_distance = distance
+            
+            dataframe.at[closest_depot_index, "total_incidents_cluster"] += incidents
 
         return dataframe
 
@@ -1096,7 +1139,9 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "total_population_radius_2km": "int64",
             "total_population_radius_5km": "int64",
             "total_incidents_radius_2km": "int64",
-            "total_incidents_radius_5km": "int64"
+            "total_incidents_radius_5km": "int64",
+            "total_population_cluster": "int64",
+            "total_incidents_cluster": "int64"
         }
 
         dataframe = pd.read_csv(
@@ -1220,7 +1265,9 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "total_population_radius_2km": "int64",
             "total_population_radius_5km": "int64",
             "total_incidents_radius_2km": "int64",
-            "total_incidents_radius_5km": "int64"
+            "total_incidents_radius_5km": "int64",
+            "total_population_cluster": "int64",
+            "total_incidents_cluster": "int64"
         }
 
         dataframe = pd.read_csv(
