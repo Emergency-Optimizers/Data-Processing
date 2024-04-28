@@ -27,7 +27,7 @@ def incidents_over_years(dataframe: pd.DataFrame, figsize: tuple[float, float] =
     matplotlib.pyplot.grid(True)
 
     # set labels
-    matplotlib.pyplot.title("Total Incidents Per Day Over Years", fontdict=constants.FONT_PROPERTIES_HEADER)
+    matplotlib.pyplot.title("Total Incidents Per Day Over Years", fontdict=constants.FONT_PROPERTIES_SUB_HEADER)
 
     matplotlib.pyplot.xlabel("Year")
     matplotlib.pyplot.ylabel("Total Incidents")

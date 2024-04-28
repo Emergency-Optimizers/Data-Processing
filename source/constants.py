@@ -9,9 +9,15 @@ matplotlib.pyplot.rcParams["font.family"] = "Palatino Linotype"
 matplotlib.pyplot.rcParams["font.size"] = 12
 
 FONT_PROPERTIES_HEADER = {
-    "fontname": "Palatino Linotype",
-    "fontsize": 16,
-    "fontweight": "regular",
+    "size": 17,
+    "weight": "heavy",
+    "color": "black"
+}
+
+FONT_PROPERTIES_SUB_HEADER = {
+    "fontsize": 14,
+    "fontweight": "light",
+    "style": "italic",
     "color": "black"
 }
 
