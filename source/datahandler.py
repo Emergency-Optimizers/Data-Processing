@@ -824,7 +824,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "time_incident_created",
             "time_resource_appointed",
             triage_impression="V1",
-            z_score_threshold=3,
+            z_score_threshold=2,
             bounds_to_use="z"
         )
 
