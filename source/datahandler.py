@@ -456,8 +456,11 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
                 cached_geo_data_grid_id[grid_id] = (longitude, latitude, region, urban_settlement_ssb, urban_settlement_fhi)
 
-            dataframe.at[index, "longitude"] = longitude
-            dataframe.at[index, "latitude"] = latitude
+            dataframe.at[index, "longitude"], dataframe.at[index, "latitude"] = utils.utm_to_geographic(
+                dataframe.at[index, "x"],
+                dataframe.at[index, "y"]
+            )
+
             dataframe.at[index, "region"] = region
             dataframe.at[index, "urban_settlement_ssb"] = urban_settlement_ssb
             dataframe.at[index, "urban_settlement_fhi"] = urban_settlement_fhi
