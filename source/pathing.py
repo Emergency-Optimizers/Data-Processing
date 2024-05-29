@@ -85,7 +85,7 @@ class OriginDestination:
 
         gc.collect()
 
-        od_pairs = [(origin_id, destination_id) 
+        od_pairs = [(origin_id, destination_id)
                     for origin_id, destination_id in itertools.product(self.ids, repeat=2)
                     if origin_id != destination_id]
 
@@ -307,7 +307,7 @@ class OriginDestination:
             else:
                 # Apply default speed where specific speed limits are not available
                 avg_speed = 50
-            
+
             avg_speed *= factor
 
             data["time"] = data["length"] / (avg_speed * 1000 / 60)
@@ -348,6 +348,5 @@ class OriginDestination:
         for linkable in linkables:
             if linkable in road_type_factors:
                 road_type_factors[linkable + "_link"] = road_type_factors[linkable] * link_factor
-        
-        return road_type_factors
 
+        return road_type_factors

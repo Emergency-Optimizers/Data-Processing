@@ -6,7 +6,6 @@ import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import utm
-import math
 import numpy as np
 
 
@@ -135,14 +134,14 @@ def get_bounds(file_paths: list[str]) -> gpd.GeoDataFrame:
 
 def plot_multiple_geojson_polygons_in_one_plot_corrected(file_paths, labels, colors):
     plt.figure(figsize=(15, 15))
-    
+
     for idx, file_path in enumerate(file_paths):
         # Load the GeoJSON file into a GeoDataFrame
         gdf = gpd.read_file(file_path)
-        
+
         # Plot the boundary of the GeoDataFrame
         gdf.boundary.plot(ax=plt.gca(), label=labels[idx], edgecolor=colors[idx])
-        
+
     plt.xlabel('Longitude')
     plt.ylabel('Latitude')
     plt.title('Polygons of Different Areas')
@@ -154,7 +153,7 @@ def plot_multiple_geojson_polygons_in_one_plot_corrected(file_paths, labels, col
 def time_difference_lower_upper_bounds(
     data: pd.Series,
     z_score_threshold: float = 3,
-    IQR_multiplier = 1.5,
+    IQR_multiplier: float = 1.5,
     verbose: bool = False
 ):
     data = np.log(data + 1)
@@ -184,8 +183,8 @@ def time_difference_lower_upper_bounds(
 def get_values_within_radius(utm_to_value: dict, target_utm: tuple[int, int], distance_km: float) -> int:
     total_pop = 0
 
-    for utm, population in utm_to_value.items():
-        if (math.dist(utm, target_utm) <= (distance_km * 1000)):
+    for utm_v, population in utm_to_value.items():
+        if (math.dist(utm_v, target_utm) <= (distance_km * 1000)):
             total_pop += population
 
     return total_pop

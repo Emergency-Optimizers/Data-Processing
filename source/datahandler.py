@@ -7,7 +7,6 @@ import numpy as np
 import regex
 from tqdm import tqdm
 from scipy.stats import norm
-import geopandas as gpd
 import shapely.geometry
 import math
 
@@ -58,10 +57,10 @@ class DataPreprocessor:
         if not os.path.exists(self._clean_depots_data_path):
             self._clean_depots()
         progress_bar.update(1)
-    
+
     def _clean_incidents(self) -> None:
         pass
-    
+
     def _clean_depots(self) -> None:
         pass
 
@@ -81,7 +80,7 @@ class DataPreprocessor:
     
     def _process_incidents(self) -> None:
         pass
-    
+
     def _process_depots(self) -> None:
         pass
 
@@ -98,31 +97,31 @@ class DataPreprocessor:
         if not os.path.exists(self._enhanced_depots_data_path):
             self._enhance_depots()
         progress_bar.update(1)
-    
+
     def _enhance_incidents(self) -> None:
         pass
-    
+
     def _enhance_depots(self) -> None:
         pass
 
     def save_dataframe(self, dataframe: pd.DataFrame, filepath: str):
         dataframe.to_csv(filepath, index=False)
-    
+
     def load_clean_incidents_dataframe(self) -> pd.DataFrame:
         return pd.read_csv(self._clean_incidents_data_path, low_memory=False)
-    
+
     def load_clean_depots_dataframe(self) -> pd.DataFrame:
         return pd.read_csv(self._clean_depots_data_path, low_memory=False)
-    
+
     def load_processed_incidents_dataframe(self) -> pd.DataFrame:
         return pd.read_csv(self._processed_incidents_data_path, low_memory=False)
-    
+
     def load_processed_depots_dataframe(self) -> pd.DataFrame:
         return pd.read_csv(self._processed_depots_data_path, low_memory=False)
-    
+
     def load_enhanced_incidents_dataframe(self) -> pd.DataFrame:
         return pd.read_csv(self._enhanced_incidents_data_path, low_memory=False)
-    
+
     def load_enhanced_depots_dataframe(self) -> pd.DataFrame:
         return pd.read_csv(self._enhanced_depots_data_path, low_memory=False)
 
@@ -132,7 +131,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
     def __init__(self) -> None:
         super().__init__(dataset_id="oslo")
-    
+
     def _clean_incidents(self) -> None:
         self.fix_csv_errors()
         dataframe = pd.read_csv(self._clean_incidents_data_path, escapechar="\\", low_memory=False)
@@ -140,16 +139,16 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe = self.fix_raw_types(dataframe)
 
         self.save_dataframe(dataframe, self._clean_incidents_data_path)
-    
+
     def fix_csv_errors(self) -> None:
         """Fixes common errors in a CSV file and saves the corrected version."""
         with open(self._raw_incidents_data_path, "r", encoding="windows-1252") as source_file, \
-            open(self._clean_incidents_data_path, "w", encoding="utf-8") as target_file:
-            
+             open(self._clean_incidents_data_path, "w", encoding="utf-8") as target_file:
+
             # fix empty header
             header = source_file.readline().replace('""', '"index"')
             target_file.write(header)
-            
+
             # fix comma errors in the data lines
             for line in source_file:
                 if regex.match(r".*\(.*,.*\).*", line):
@@ -200,7 +199,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "popFem": "int64",
             "popMal": "int64",
         }
-        
+
         dataframe = dataframe.astype(headers_types)
 
         date_columns = [
@@ -218,11 +217,11 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             dataframe[col] = pd.to_datetime(dataframe[col], format="%d.%m.%Y %H:%M:%S ", errors="coerce")
 
         return dataframe
-    
+
     def _clean_depots(self) -> None:
         dataframe = pd.read_csv(self._raw_depots_data_path)
         self.save_dataframe(dataframe, self._clean_depots_data_path)
-    
+
     def _process_incidents(self) -> None:
         dataframe = self.initialize_processed_incidents_dataframe()
         dataframe = self.add_geo_data(dataframe)
@@ -230,7 +229,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe = self._count_total_per_hour_triage(dataframe)
 
         self.save_dataframe(dataframe, self._processed_incidents_data_path)
-    
+
     def initialize_processed_incidents_dataframe(self) -> pd.DataFrame:
         dataframe_clean = self.load_clean_incidents_dataframe()
 
@@ -331,7 +330,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe = dataframe.sort_values(by="time_call_received")
 
         return dataframe
-    
+
     def _process_depots(self) -> None:
         dataframe = self.initialize_processed_depots_dataframe()
         dataframe = self.convert_depot_types(dataframe)
@@ -340,7 +339,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe = self._add_population_data(dataframe, use_enhanced=False)
 
         self.save_dataframe(dataframe, self._processed_depots_data_path)
-    
+
     def initialize_processed_depots_dataframe(self) -> pd.DataFrame:
         dataframe_clean = self.load_clean_depots_dataframe()
 
@@ -363,7 +362,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe["total_incidents_cluster"] = 0
 
         return dataframe
-    
+
     def convert_depot_types(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         for index, _ in dataframe.iterrows():
             depot_type = dataframe.at[index, "type"]
@@ -377,11 +376,11 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
                 new_depot_type = "Hospital"
             elif depot_type == "legevakt":
                 new_depot_type = "Emergency Ward"
-            
+
             dataframe.at[index, "type"] = new_depot_type
-        
+
         return dataframe
-    
+
     def add_grid_id(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         for index, _ in dataframe.iterrows():
             x_accurate = dataframe.at[index, "x"]
@@ -393,7 +392,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             dataframe.at[index, "grid_id"] = grid_id
             dataframe.at[index, "x"] = x
             dataframe.at[index, "y"] = y
-        
+
         return dataframe
 
     def add_geo_data(self, dataframe: pd.DataFrame) -> pd.DataFrame:
@@ -440,17 +439,17 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
                         region_akershus_count += 1
                     elif region == "Oslo":
                         region_oslo_count += 1
-                        
+
                     urban_settlement_count += urban_settlement_ssb
                     urban_settlement_count_fhi += urban_settlement_fhi
-                
+
                 if (region_akershus_count + region_oslo_count) == 0:
                     region = None
                 elif region_oslo_count >= region_akershus_count:
                     region = "Oslo"
                 else:
                     region = "Akershus"
-                
+
                 urban_settlement_ssb = urban_settlement_count >= 1
                 urban_settlement_fhi = urban_settlement_count_fhi >= 1
 
@@ -464,7 +463,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             dataframe.at[index, "region"] = region
             dataframe.at[index, "urban_settlement_ssb"] = urban_settlement_ssb
             dataframe.at[index, "urban_settlement_fhi"] = urban_settlement_fhi
-        
+
         return dataframe
 
     def _add_population_data(self, dataframe: pd.DataFrame, use_enhanced: bool) -> pd.DataFrame:
@@ -486,7 +485,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             dataframe.at[index, "total_population_radius_5km"] = utils.get_values_within_radius(utm_to_population, target_utm, distance_km=5.0)
             dataframe.at[index, "total_incidents_radius_2km"] = utils.get_values_within_radius(utm_to_incidents, target_utm, distance_km=2.0)
             dataframe.at[index, "total_incidents_radius_5km"] = utils.get_values_within_radius(utm_to_incidents, target_utm, distance_km=5.0)
-        
+
         # set cluster data
         dataframe["total_population_cluster"] = 0
         dataframe["total_incidents_cluster"] = 0
@@ -506,9 +505,9 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
                 if (closest_depot_index == -1 or distance < min_distance):
                     closest_depot_index = depot_index
                     min_distance = distance
-            
+
             dataframe.at[closest_depot_index, "total_population_cluster"] += population
-        
+
         for incident_utm, incidents in utm_to_incidents.items():
             min_distance = float('inf')
             closest_depot_index = -1
@@ -524,7 +523,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
                 if (closest_depot_index == -1 or distance < min_distance):
                     closest_depot_index = depot_index
                     min_distance = distance
-            
+
             dataframe.at[closest_depot_index, "total_incidents_cluster"] += incidents
 
         return dataframe
@@ -550,7 +549,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe["time_call_received"] = dataframe["time_call_received"].dt.strftime("%Y-%m-%d %H:%M:%S")
 
         self.save_dataframe(dataframe, self._enhanced_incidents_data_path)
-    
+
     def _remove_other_resource_types(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         dataframe = dataframe[dataframe["resource_type"] == "Ambulanse"]
 
@@ -562,7 +561,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe["resources_sent"] = dataframe.set_index(["time_call_received", "grid_id"]).index.map(unique_counts)
 
         return dataframe
-    
+
     def _remove_extra_resources(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         # columns to consider for counting NaNs
         time_columns = [
@@ -577,8 +576,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
         # cort by the number of NaNs in time columns (ascending) and then by 'time_call_received' and 'grid_id'
         dataframe = dataframe.sort_values(
-            by=time_columns + ["time_call_received", "grid_id"], 
-            ascending=[True] * len(time_columns) + [True, True], 
+            by=time_columns + ["time_call_received", "grid_id"],
+            ascending=[True] * len(time_columns) + [True, True],
             na_position="last"
         )
 
@@ -603,7 +602,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe = dataframe.dropna(subset=["region"])
 
         return dataframe
-    
+
     def _remove_other_triage_impressions(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         dataframe = dataframe[(dataframe["triage_impression_during_call"] != "V2") & (dataframe["triage_impression_during_call"] != "V")]
 
@@ -655,7 +654,9 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         return dataframe
 
     def _remove_na(self, dataframe: pd.DataFrame) -> pd.DataFrame:
-        dataframe = dataframe.dropna(subset=["triage_impression_during_call", "time_resource_appointed", "time_ambulance_dispatch_to_scene", "time_ambulance_arrived_at_scene", "time_ambulance_available"])
+        dataframe = dataframe.dropna(
+            subset=["triage_impression_during_call", "time_resource_appointed", "time_ambulance_dispatch_to_scene", "time_ambulance_arrived_at_scene", "time_ambulance_available"]
+        )
 
         mask1 = dataframe["time_ambulance_arrived_at_scene"].isna() & dataframe["time_ambulance_arrived_at_hospital"].notna()
         mask2 = dataframe["time_ambulance_dispatch_to_hospital"].isna() & dataframe["time_ambulance_arrived_at_hospital"].notna()
@@ -737,8 +738,8 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             z_score_threshold=3,
             bounds_to_use="z"
         )
-        
-        # H incidents       
+
+        # H incidents
         dataframe = self._drop_outside_bounds(
             dataframe,
             "time_call_received",
@@ -811,7 +812,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             z_score_threshold=3,
             bounds_to_use="z"
         )
-        
+
         # V1 incidents
         dataframe = self._drop_outside_bounds(
             dataframe,
@@ -903,9 +904,9 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         keep_mask = pd.Series(True, index=dataframe.index)
 
         valid_rows = dataframe[column_start].notnull() & dataframe[column_end].notnull()
-        if triage_impression != None:
+        if triage_impression is not None:
             valid_rows &= (dataframe["triage_impression_during_call"] == triage_impression)
-    
+
         if cancelled:
             valid_rows &= (dataframe["time_ambulance_dispatch_to_hospital"].isna())
 
@@ -930,9 +931,9 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         keep_mask = pd.Series(True, index=dataframe.index)
 
         valid_rows = dataframe[column_start].notnull() & dataframe[column_end].notnull()
-        if triage_impression != None:
+        if triage_impression is not None:
             valid_rows &= (dataframe["triage_impression_during_call"] == triage_impression)
-    
+
         if cancelled:
             valid_rows &= (dataframe["time_ambulance_dispatch_to_hospital"].isna())
 
@@ -944,7 +945,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         keep_mask = keep_mask.astype(bool)
 
         return dataframe[keep_mask]
-    
+
     def _count_total_per_hour_triage(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         # extract hour and date from 'time_call_received'
         dataframe['triage'] = dataframe['triage_impression_during_call'].replace(['V2', 'V'], 'V1')
@@ -967,7 +968,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         for column in pivot_table.columns[1:]:  # Skip the 'date' column
             # Prepare a dictionary to map 'date' to the counts for this triage type and hour
             update_dict = pivot_table[['date', column]].set_index('date')[column].to_dict()
-            
+
             # Update the original dataframe with the counts for each triage type per hour
             dataframe[column] = dataframe.apply(lambda row: update_dict.get(row['date'], 0), axis=1)
 
@@ -1012,7 +1013,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         )
 
         return dataframe
-    
+
     def load_clean_depots_dataframe(self) -> pd.DataFrame:
         column_types = {
             "name": "object",
@@ -1028,7 +1029,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         )
 
         return dataframe
-    
+
     def load_processed_incidents_dataframe(self) -> pd.DataFrame:
         column_types = {
             "triage_impression_during_call": "object",
@@ -1126,7 +1127,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         )
 
         return dataframe
-    
+
     def load_processed_depots_dataframe(self) -> pd.DataFrame:
         column_types = {
             "name": "object",
@@ -1154,7 +1155,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         )
 
         return dataframe
-    
+
     def load_enhanced_incidents_dataframe(self) -> pd.DataFrame:
         column_types = {
             "triage_impression_during_call": "object",
@@ -1252,7 +1253,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         )
 
         return dataframe
-    
+
     def load_enhanced_depots_dataframe(self) -> pd.DataFrame:
         column_types = {
             "name": "object",
@@ -1393,7 +1394,7 @@ class DataPreprocessorOUS(DataPreprocessor):
         gdf_oslo_bounds = utils.get_bounds(file_paths=[os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "ssb_2019_oslo_polygon_epsg4326.geojson")])
         gdf_akershus_bounds = utils.get_bounds(file_paths=[os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "ssb_2019_akershus_polygon_epsg4326.geojson")])
         gdf_urban_settlement_bounds = utils.get_bounds(file_paths=[os.path.join(constants.PROJECT_DIRECTORY_PATH, "data", "ssb_2021_urban_settlements_polygon_epsg4326.geojson")])
-        
+
         grid_id_mapping = {}
         # rename columns
         for _, row in df_incidents_clean.iterrows():
@@ -1441,7 +1442,7 @@ class DataPreprocessorOUS(DataPreprocessor):
                 region = "Oslo"
             urban_settlement = gdf_urban_settlement_bounds.contains(point).any()
             grid_id_mapping[key] = (region, urban_settlement)
-        
+
         for idx in range(len(row_data["region"])):
             cell_corners = utils.get_cell_corners(row_data["easting"][idx], row_data["northing"][idx])
 
@@ -1464,14 +1465,14 @@ class DataPreprocessorOUS(DataPreprocessor):
                     oslo_count += 1
                 elif new_region == "Akershus":
                     akershus_count += 1
-            
+
             if (oslo_count + akershus_count) == 0:
                 region = np.nan
             elif oslo_count >= akershus_count:
                 region = "Oslo"
             else:
                 region = "Akershus"
-                
+
             row_data["region"][idx] = region
         # convert to dataframe
         df_incidents = pd.DataFrame(row_data)
@@ -1600,7 +1601,7 @@ class DataLoader:
         self.enhanced_incidents_df: pd.DataFrame = None
         self.enhanced_depots_df: pd.DataFrame = None
 
-    def execute(self, clean = True, processed = True, enhanced = True) -> None:
+    def execute(self, clean=True, processed=True, enhanced=True) -> None:
         """Run the data loader."""
         if not clean and not processed and not enhanced:
             return

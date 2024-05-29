@@ -3,7 +3,6 @@ import constants
 import pandas as pd
 import matplotlib.dates
 import matplotlib.pyplot as plt
-import numpy as np
 
 
 def incidents_over_years(dataframe: pd.DataFrame, figsize: tuple[float, float] = [12, 6], limit_left: str = None, limit_right: str = None):
@@ -95,7 +94,7 @@ def plot_time_difference_distribution(
     valid_rows = dataframe[column_start].notnull() & dataframe[column_end].notnull()
     if triage_impression is not None:
         valid_rows &= (dataframe["triage_impression_during_call"] == triage_impression)
-    
+
     if cancelled:
         valid_rows &= (dataframe["time_ambulance_dispatch_to_hospital"].isna())
 
@@ -137,7 +136,7 @@ def boxplot_time_at_steps(
     else:
         # Use the original dataframe if no triage_impression filter is applied
         temp_df = dataframe.copy()
-    
+
     if bounds is not None:
         # Convert string bounds to datetime if they're not already
         start_bound, end_bound = pd.to_datetime(bounds[0]), pd.to_datetime(bounds[1])
@@ -162,7 +161,9 @@ def boxplot_time_at_steps(
             temp_df[step] = (temp_df[times[1]] - temp_df[times[0]]).dt.total_seconds() / 60
 
     # Adjust plot data creation
-    plot_data = [temp_df[step] for step in steps if step not in ["Dispatching to Hospital", "At Hospital"]] + [temp_df[step].dropna() for step in steps if step in ["Dispatching to Hospital", "At Hospital"]]
+    plot_data = [
+        temp_df[step] for step in steps if step not in ["Dispatching to Hospital", "At Hospital"]] + [temp_df[step].dropna() for step in steps if step in ["Dispatching to Hospital", "At Hospital"]
+    ]
 
     # Plotting
     plt.figure(figsize=(8, 4))
@@ -196,7 +197,7 @@ def plot_percentage_below_threshold_per_hour(
     valid_rows = dataframe[column_start].notnull() & dataframe[column_end].notnull()
     if triage_impression is not None:
         valid_rows &= (dataframe["triage_impression_during_call"] == triage_impression)
-    
+
     if cancelled:
         valid_rows &= (dataframe["time_ambulance_dispatch_to_hospital"].isna())
 
