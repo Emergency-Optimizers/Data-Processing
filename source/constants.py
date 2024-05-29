@@ -48,5 +48,3 @@ COLOR_MAPPING_NORMAL = {
 }
 
 COLOR_MAPPING_NORMAL_LIGHT = [matplotlib.pyplot.cm.colors.to_rgba(color, alpha=0.65) for color in COLOR_MAPPING_NORMAL.values()]
-
-
