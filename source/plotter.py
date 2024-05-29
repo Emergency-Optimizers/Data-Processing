@@ -161,9 +161,8 @@ def boxplot_time_at_steps(
             temp_df[step] = (temp_df[times[1]] - temp_df[times[0]]).dt.total_seconds() / 60
 
     # Adjust plot data creation
-    plot_data = [
-        temp_df[step] for step in steps if step not in ["Dispatching to Hospital", "At Hospital"]] + [temp_df[step].dropna() for step in steps if step in ["Dispatching to Hospital", "At Hospital"]
-    ]
+    subset = ["Dispatching to Hospital", "At Hospital"]
+    plot_data = [temp_df[step] for step in steps if step not in subset] + [temp_df[step].dropna() for step in steps if step in subset]
 
     # Plotting
     plt.figure(figsize=(8, 4))

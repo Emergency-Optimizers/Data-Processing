@@ -77,7 +77,7 @@ class DataPreprocessor:
         if not os.path.exists(self._processed_depots_data_path):
             self._process_depots()
         progress_bar.update(1)
-    
+
     def _process_incidents(self) -> None:
         pass
 

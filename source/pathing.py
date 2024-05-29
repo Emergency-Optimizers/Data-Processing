@@ -241,7 +241,7 @@ class OriginDestination:
             else:
                 avg_speed = 50
 
-            data["time"] = data["length"] / (avg_speed * 1000/60)
+            data["time"] = data["length"] / (avg_speed * 1000 / 60)
 
             if "junction" in self.graph.nodes[u] or "highway" in self.graph.nodes[u] and self.graph.nodes[u]["highway"] == "traffic_signals":
                 data["time"] += intersection_penalty / 60
