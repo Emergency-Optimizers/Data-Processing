@@ -47,10 +47,10 @@ def overlay_incidents_over_years(dataframe1: pd.DataFrame, dataframe2: pd.DataFr
     plt.figure(figsize=figsize)
 
     # Plot the first dataframe in blue
-    plt.plot(daily_incidents1.index, daily_incidents1.values, color='blue', label='Before removing wrong timestamps')
+    plt.plot(daily_incidents1.index, daily_incidents1.values, color='blue', label='Before removing bad timestamps')
 
     # Overlay the second dataframe in orange
-    plt.plot(daily_incidents2.index, daily_incidents2.values, 'g--', label='After removing wrong timestamps')
+    plt.plot(daily_incidents2.index, daily_incidents2.values, 'g--', label='After removing bad timestamps')
 
     # Aesthetics
     if limit_left is not None:
