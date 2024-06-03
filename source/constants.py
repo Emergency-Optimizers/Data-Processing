@@ -8,6 +8,11 @@ PROJECT_DIRECTORY_PATH = os.path.dirname(os.path.dirname(__file__))
 matplotlib.pyplot.rcParams["font.family"] = "Palatino Linotype"
 matplotlib.pyplot.rcParams["font.size"] = 12
 
+matplotlib.pyplot.rcParams['mathtext.fontset'] = 'custom'
+matplotlib.pyplot.rcParams['mathtext.rm'] = 'Palatino Linotype'
+matplotlib.pyplot.rcParams['mathtext.it'] = 'Palatino Linotype:italic'
+matplotlib.pyplot.rcParams['mathtext.bf'] = 'Palatino Linotype:bold'
+
 FONT_PROPERTIES_HEADER = {
     "size": 17,
     "weight": "heavy",
