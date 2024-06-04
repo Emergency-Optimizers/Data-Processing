@@ -136,10 +136,10 @@ def plot_multiple_geojson_polygons_in_one_plot_corrected(file_paths, labels, col
     plt.figure(figsize=(15, 15))
 
     for idx, file_path in enumerate(file_paths):
-        # Load the GeoJSON file into a GeoDataFrame
+        # load the GeoJSON file into a GeoDataFrame
         gdf = gpd.read_file(file_path)
 
-        # Plot the boundary of the GeoDataFrame
+        # plot the boundary of the GeoDataFrame
         gdf.boundary.plot(ax=plt.gca(), label=labels[idx], edgecolor=colors[idx])
 
     plt.xlabel('Longitude')

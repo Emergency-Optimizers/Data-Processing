@@ -36,22 +36,22 @@ def incidents_over_years(dataframe: pd.DataFrame, figsize: tuple[float, float] =
 
 
 def overlay_incidents_over_years(dataframe1: pd.DataFrame, dataframe2: pd.DataFrame, figsize: tuple[float, float] = [12, 6], limit_left: str = None, limit_right: str = None):
-    # Prepare data for the first dataframe
+    # prepare data for the first dataframe
     daily_incidents1 = dataframe1.groupby(dataframe1["time_call_received"].dt.date).size()
 
-    # Prepare data for the second dataframe
+    # prepare data for the second dataframe
     daily_incidents2 = dataframe2.groupby(dataframe2["time_call_received"].dt.date).size()
 
-    # Plot data
+    # plot data
     plt.figure(figsize=figsize)
 
-    # Plot the first dataframe in blue
+    # plot the first dataframe in blue
     plt.plot(daily_incidents1.index, daily_incidents1.values, color='blue', label='Before removing bad timestamps')
 
-    # Overlay the second dataframe in orange
+    # overlay the second dataframe in orange
     plt.plot(daily_incidents2.index, daily_incidents2.values, 'g--', label='After removing bad timestamps')
 
-    # Aesthetics
+    # aesthetics
     if limit_left is not None:
         plt.xlim(left=pd.Timestamp(limit_left))
     if limit_right is not None:
@@ -62,13 +62,13 @@ def overlay_incidents_over_years(dataframe1: pd.DataFrame, dataframe2: pd.DataFr
 
     plt.grid(True)
 
-    # Set labels and title
+    # set labels and title
     plt.title("Total Incidents Per Day Over Years")
     plt.xlabel("Year")
     plt.ylabel("Total Incidents")
     plt.legend()
 
-    # Save/show plot
+    # save/show plot
     plt.show()
 
 
@@ -130,15 +130,15 @@ def boxplot_time_at_steps(
     title = "Time Taken At Each Step of the Incident"
 
     if triage_impression is not None:
-        # Filter the dataframe without overwriting the original one
+        # filter the dataframe without overwriting the original one
         temp_df = dataframe[dataframe["triage_impression_during_call"] == triage_impression].copy()
         title += f" ({triage_impression})"
     else:
-        # Use the original dataframe if no triage_impression filter is applied
+        # use the original dataframe if no triage_impression filter is applied
         temp_df = dataframe.copy()
 
     if bounds is not None:
-        # Convert string bounds to datetime if they're not already
+        # convert string bounds to datetime if they're not already
         start_bound, end_bound = pd.to_datetime(bounds[0]), pd.to_datetime(bounds[1])
         temp_df = temp_df[(temp_df['time_call_received'] >= start_bound) & (temp_df['time_call_received'] <= end_bound)]
 
@@ -152,19 +152,19 @@ def boxplot_time_at_steps(
         "At Hospital": ("time_ambulance_arrived_at_hospital", "time_ambulance_available")
     }
 
-    # Calculating durations for each step
+    # calculating durations for each step
     for step, times in steps.items():
-        if len(times) == 3:  # Special handling for "At scene"
+        if len(times) == 3:  # special handling for "At scene"
             temp_df.loc[temp_df[times[1]].isna(), step] = (temp_df[times[2]] - temp_df[times[0]]).dt.total_seconds() / 60
             temp_df.loc[~temp_df[times[1]].isna(), step] = (temp_df[times[1]] - temp_df[times[0]]).dt.total_seconds() / 60
         else:
             temp_df[step] = (temp_df[times[1]] - temp_df[times[0]]).dt.total_seconds() / 60
 
-    # Adjust plot data creation
+    # adjust plot data creation
     subset = ["Dispatching to Hospital", "At Hospital"]
     plot_data = [temp_df[step] for step in steps if step not in subset] + [temp_df[step].dropna() for step in steps if step in subset]
 
-    # Plotting
+    # plotting
     plt.figure(figsize=(8, 4))
     plt.boxplot(plot_data[::-1], labels=list(steps.keys())[::-1], vert=False, patch_artist=True, showfliers=False)
     plt.title(title)
@@ -203,21 +203,21 @@ def plot_percentage_below_threshold_per_hour(
     dataframe = dataframe[valid_rows]
     time_diffs = (dataframe[column_end] - dataframe[column_start]).dt.total_seconds() / 60
 
-    # Extract hour from the start time
+    # extract hour from the start time
     hours = dataframe[column_start].dt.hour
 
     percentages = []
     for hour in range(24):
-        # Filter time differences by hour
+        # filter time differences by hour
         hourly_time_diffs = time_diffs[hours == hour]
         if len(hourly_time_diffs) > 0:
-            # Calculate percentage below threshold for the hour
+            # calculate percentage below threshold for the hour
             percentage_below_threshold = (hourly_time_diffs <= threshold).mean() * 100
             percentages.append(percentage_below_threshold)
         else:
             percentages.append(0)
 
-    # Plotting
+    # plotting
     plt.figure(figsize=(12, 6))
     plt.bar(range(24), percentages, color="skyblue", edgecolor="black")
     plt.title(f"Percentage of Time Differences Below {threshold} Minutes for Each Hour of the Day")

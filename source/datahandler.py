@@ -574,7 +574,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "time_ambulance_available"
         ]
 
-        # cort by the number of NaNs in time columns (ascending) and then by 'time_call_received' and 'grid_id'
+        # sort by the number of NaNs in time columns (ascending) and then by 'time_call_received' and 'grid_id'
         dataframe = dataframe.sort_values(
             by=time_columns + ["time_call_received", "grid_id"],
             ascending=[True] * len(time_columns) + [True, True],
@@ -615,18 +615,18 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "time_ambulance_arrived_at_hospital", "time_ambulance_available"
         ]
 
-        # Start with all rows marked as valid
+        # start with all rows marked as valid
         valid_rows = pd.Series([True] * len(dataframe), index=dataframe.index)
 
-        # Iterate over the datetime column pairs, except the first pair
+        # iterate over the datetime column pairs, except the first pair
         for i in range(1, len(datetime_columns) - 1):
             first_col = datetime_columns[i]
             second_col = datetime_columns[i + 1]
 
-            # Mark rows as invalid where the first date is after the second date
+            # mark rows as invalid where the first date is after the second date
             valid_rows &= ~(dataframe[first_col] > dataframe[second_col])
 
-        # Return a new dataframe excluding the rows with incorrect timestamps
+        # return a new dataframe excluding the rows with incorrect timestamps
         return dataframe[valid_rows]
 
     def _fix_timestamps(self, dataframe: pd.DataFrame) -> pd.DataFrame:
@@ -828,7 +828,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "time_incident_created",
             "time_resource_appointed",
             triage_impression="V1",
-            z_score_threshold=2,
+            z_score_threshold=2, # special case, would otherwise include very large outliers
             bounds_to_use="z"
         )
 
@@ -952,24 +952,21 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         dataframe['hour'] = dataframe['time_call_received'].dt.hour
         dataframe['date'] = dataframe['time_call_received'].dt.date
 
-        # Group by date, hour, and triage type, then count incidents
+        # group by date, hour, and triage type, then count incidents
         counts = dataframe.groupby(['date', 'hour', 'triage']).size().reset_index(name='count')
 
-        # Pivot the table to have hours as columns, triage types as part of the column names, and counts as values
         pivot_table = counts.pivot_table(index='date', columns=['triage', 'hour'], values='count').fillna(0)
 
-        # Create new column names based on triage type and hour
+        # create new column names based on triage type and hour
         pivot_table.columns = [f"total_{triage}_incidents_hour_{hour}" for triage, hour in pivot_table.columns]
 
-        # Reset index to turn 'date' back into a column
         pivot_table.reset_index(inplace=True)
 
-        # Update the original dataframe
-        for column in pivot_table.columns[1:]:  # Skip the 'date' column
-            # Prepare a dictionary to map 'date' to the counts for this triage type and hour
+        # update the original dataframe
+        for column in pivot_table.columns[1:]:
+            # prepare a dictionary to map 'date' to the counts for this triage type and hour
             update_dict = pivot_table[['date', column]].set_index('date')[column].to_dict()
 
-            # Update the original dataframe with the counts for each triage type per hour
             dataframe[column] = dataframe.apply(lambda row: update_dict.get(row['date'], 0), axis=1)
 
         # Convert total incidents columns to nullable integer type
@@ -977,7 +974,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         for col in incident_columns:
             dataframe[col] = dataframe[col].astype('Int64')
 
-        # Drop temporary columns
+        # drop temporary columns
         dataframe.drop(columns=['triage', 'hour', 'date'], inplace=True)
 
         return dataframe
@@ -1284,7 +1281,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
 
 class DataPreprocessorOUS(DataPreprocessor):
-    """Class for preprocessing the OUS dataset."""
+    """Class for preprocessing the OUS dataset. This is an older version, no longer used."""
 
     def __init__(self) -> None:
         super().__init__(dataset_id="oslo")

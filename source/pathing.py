@@ -302,10 +302,10 @@ class OriginDestination:
                 else:
                     speed_limit = speeds_normal.get(int(data["maxspeed"]), int(data["maxspeed"]))
 
-                # Apply road type specific factor if available, else use a default factor
+                # apply road type specific factor if available, else use a default factor
                 avg_speed = speed_limit
             else:
-                # Apply default speed where specific speed limits are not available
+                # apply default speed where specific speed limits are not available
                 avg_speed = 50
 
             avg_speed *= factor
@@ -315,11 +315,11 @@ class OriginDestination:
             intersection_penalty_u = traffic_signal_penalty if "highway" in self.graph.nodes[u] and self.graph.nodes[u]["highway"] == "traffic_signals" else default_intersection_penalty
             intersection_penalty_v = traffic_signal_penalty if "highway" in self.graph.nodes[v] and self.graph.nodes[v]["highway"] == "traffic_signals" else default_intersection_penalty
 
-            # Adjusting time for intersections
+            # adjusting time for intersections
             if "junction" in self.graph.nodes[u] or "highway" in self.graph.nodes[u]:
-                data["time"] += intersection_penalty_u / 60  # Convert penalty to minutes
+                data["time"] += intersection_penalty_u / 60  # convert penalty to minutes
             if "junction" in self.graph.nodes[v] or "highway" in self.graph.nodes[v]:
-                data["time"] += intersection_penalty_v / 60  # Convert penalty to minutes
+                data["time"] += intersection_penalty_v / 60  # convert penalty to minutes
 
     def get_adjustment_factor(self, road_type, road_type_factors, default_factor):
         if isinstance(road_type, list):
@@ -333,7 +333,7 @@ class OriginDestination:
                 return sum(factors) / len(factors)
             return default_factor
         else:
-            # Return the factor for the single road type or the default
+            # return the factor for the single road type or the default
             return road_type_factors.get(road_type, default_factor)
 
     def gen_linkers(self, road_type_factors, link_factor):
