@@ -1332,7 +1332,6 @@ class DataPreprocessorOUS(DataPreprocessor):
 
     def _invalid_date_format(self, date_string: str) -> bool:
         """Helper function used for checking date formats are consistent."""
-        # Pattern for the date format "13.02.2015 09:37:14 " and ""
         pattern = regex.compile(r"^\d{2}\.\d{2}\.\d{4}  \d{2}:\d{2}:\d{2} $|^$")
         return not pattern.match(date_string)
 

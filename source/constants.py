@@ -5,6 +5,7 @@ import matplotlib.pyplot
 
 PROJECT_DIRECTORY_PATH = os.path.dirname(os.path.dirname(__file__))
 
+# set font
 matplotlib.pyplot.rcParams["font.family"] = "Palatino Linotype"
 matplotlib.pyplot.rcParams["font.size"] = 12
 

@@ -68,7 +68,6 @@ def overlay_incidents_over_years(dataframe1: pd.DataFrame, dataframe2: pd.DataFr
     plt.ylabel("Total Incidents")
     plt.legend()
 
-    # save/show plot
     plt.show()
 
 
