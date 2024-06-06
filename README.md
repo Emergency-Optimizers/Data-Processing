@@ -25,7 +25,8 @@ All the code is in the `source/` directory, with the analysis notebooks containe
 
 ### Data
 The data used in this project can't be made public and will therefore not be contained in this public repository.
-The data is stored in the `data/` directory and contains three directories; `raw/` which contains the directory of the raw `incidents.csv` and `depots.csv`, `processed/` which contains the directory of the processed `incidents.csv` and `depots.csv`, and lastly `enhanced/` which contains the final form of the OUH dataset which the simulator will use. The OD cost matrix and traffic data is included as well.
+
+The data is stored in the `data/` directory and contains 4 directories for the dataset processing pipeline; `raw/` which contains the raw versions of `incidents.csv` and `depots.csv`, `clean/` which containes the cleaned versions of the files (removing CSV errors), `processed/` which contains the the processed versions of the files (convert to our dataframe template), and lastly `enhanced/` which contains the final form of the OUH dataset which the simulator will use. The OD cost matrix and traffic data is included.
 
 ```
 data/
@@ -34,6 +35,10 @@ data/
             depots.csv
             incidents.csv
     processed/
+        oslo/
+            depots.csv
+            incidents.csv
+    clean/
         oslo/
             depots.csv
             incidents.csv

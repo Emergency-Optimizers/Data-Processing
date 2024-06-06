@@ -813,7 +813,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             bounds_to_use="z"
         )
 
-        # V1 incidents
+        # V1 incidents (includes a special case)
         dataframe = self._drop_outside_bounds(
             dataframe,
             "time_call_received",
