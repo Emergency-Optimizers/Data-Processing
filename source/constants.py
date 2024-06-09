@@ -3,9 +3,10 @@ import seaborn as sns
 import matplotlib.pyplot
 
 
+# define project directory path for ease of loading data
 PROJECT_DIRECTORY_PATH = os.path.dirname(os.path.dirname(__file__))
 
-# set font
+# set font in matplotlib plots
 matplotlib.pyplot.rcParams["font.family"] = "Palatino Linotype"
 matplotlib.pyplot.rcParams["font.size"] = 12
 
@@ -14,6 +15,7 @@ matplotlib.pyplot.rcParams['mathtext.rm'] = 'Palatino Linotype'
 matplotlib.pyplot.rcParams['mathtext.it'] = 'Palatino Linotype:italic'
 matplotlib.pyplot.rcParams['mathtext.bf'] = 'Palatino Linotype:bold'
 
+# define fontdicts for different plot headers
 FONT_PROPERTIES_HEADER = {
     "size": 17,
     "weight": "heavy",
@@ -27,6 +29,7 @@ FONT_PROPERTIES_SUB_HEADER = {
     "color": "black"
 }
 
+# define color palettes
 normal_palette = sns.color_palette()
 deep_palette = sns.color_palette("deep")
 
