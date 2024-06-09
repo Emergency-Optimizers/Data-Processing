@@ -94,6 +94,7 @@ class OriginDestination:
 
         progress_bar = tqdm(desc="Building OD matrix", total=len(od_pairs))
 
+        # batch processing, 5 threads used to calculate one batch
         for batch in od_batches:
             origin_nodes = [self.get_node(od_pair[0]) for od_pair in batch]
             destination_nodes = [self.get_node(od_pair[1]) for od_pair in batch]
@@ -201,7 +202,6 @@ class OriginDestination:
         self.graph = osmnx.project_graph(self.graph, to_crs=self.utm_epsg)
 
     def set_graph_weights(self, intersection_penalty=10, secret_scary_factor=0.65, use_ambulance_speeds=True):
-
         if use_ambulance_speeds:
             speeds_normal = {
                 30: 26.9,
@@ -229,6 +229,7 @@ class OriginDestination:
                 120: 120
             }
 
+        # update each graph edge with travel time
         for u, v, data in self.graph.edges(data=True):
             if "maxspeed" in data and data["maxspeed"] != "NO:urban":
                 if isinstance(data["maxspeed"], list):
@@ -291,6 +292,7 @@ class OriginDestination:
                 120: 120
             }
 
+        # update each graph edge with travel time
         for u, v, data in self.graph.edges(data=True):
             road_type = data.get("highway", "unknown")
             factor = self.get_adjustment_factor(road_type, road_type_factors, 1.0)
