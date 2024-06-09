@@ -213,16 +213,19 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
             "ledig"
         ]
 
+        # convert dates to correct pandas format
         for col in date_columns:
             dataframe[col] = pd.to_datetime(dataframe[col], format="%d.%m.%Y %H:%M:%S ", errors="coerce")
 
         return dataframe
 
     def _clean_depots(self) -> None:
+        # nothing needed to be done
         dataframe = pd.read_csv(self._raw_depots_data_path)
         self.save_dataframe(dataframe, self._clean_depots_data_path)
 
     def _process_incidents(self) -> None:
+        # defines dataframe according to template
         dataframe = self.initialize_processed_incidents_dataframe()
         dataframe = self.add_geo_data(dataframe)
         dataframe = self._count_resources_sent(dataframe)
@@ -404,6 +407,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         cached_geo_data_point = {}
         cached_geo_data_grid_id = {}
 
+        # add spatial data to each row and cache results for rows with same grid id
         for index, _ in dataframe.iterrows():
             grid_id = dataframe.at[index, "grid_id"]
 
@@ -479,6 +483,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
         grid_count = incidents_df["grid_id"].value_counts()
         utm_to_incidents = {tuple(x + 500 for x in utils.id_to_utm(grid_id)): count for grid_id, count in grid_count.items()}
 
+        # set radius data
         for index, _ in dataframe.iterrows():
             target_utm = (dataframe.at[index, "x"], dataframe.at[index, "y"])
             dataframe.at[index, "total_population_radius_2km"] = utils.get_values_within_radius(utm_to_population, target_utm, distance_km=2.0)
@@ -546,6 +551,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
         dataframe = dataframe.sort_values(by="time_call_received")
 
+        # converts pandas date time to string format
         dataframe["time_call_received"] = dataframe["time_call_received"].dt.strftime("%Y-%m-%d %H:%M:%S")
 
         self.save_dataframe(dataframe, self._enhanced_incidents_data_path)
@@ -948,6 +954,7 @@ class DataPreprocessorOUS_V2(DataPreprocessor):
 
     def _count_total_per_hour_triage(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         # extract hour and date from 'time_call_received'
+        # count V2 as V1
         dataframe['triage'] = dataframe['triage_impression_during_call'].replace(['V2', 'V'], 'V1')
         dataframe['hour'] = dataframe['time_call_received'].dt.hour
         dataframe['date'] = dataframe['time_call_received'].dt.date
