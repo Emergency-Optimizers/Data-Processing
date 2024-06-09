@@ -184,6 +184,7 @@ def get_values_within_radius(utm_to_value: dict, target_utm: tuple[int, int], di
     total_pop = 0
 
     for utm_v, population in utm_to_value.items():
+        # use euclidean distance to calculate radius
         if (math.dist(utm_v, target_utm) <= (distance_km * 1000)):
             total_pop += population
 
