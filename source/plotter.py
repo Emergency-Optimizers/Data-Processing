@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 
 
 def incidents_over_years(dataframe: pd.DataFrame, figsize: tuple[float, float] = [12, 6], limit_left: str = None, limit_right: str = None):
-    # NB! temporary method for OUS meeting
     # prepare data
     daily_incidents = dataframe.groupby(dataframe["time_call_received"].dt.date).size()
 
@@ -80,16 +79,6 @@ def plot_time_difference_distribution(
     cancelled: bool = False,
     percentage_threshold: float = None
 ):
-    """
-    Plots the distribution of time differences in seconds between two datetime columns,
-    excluding rows with None/NaT values, with an option to use a logarithmic scale for the y-axis.
-
-    Parameters:
-    - dataframe: pd.DataFrame containing the data.
-    - column_start: The name of the start time column.
-    - column_end: The name of the end time column.
-    - log_scale: If True, use a logarithmic scale for the y-axis.
-    """
     valid_rows = dataframe[column_start].notnull() & dataframe[column_end].notnull()
     if triage_impression is not None:
         valid_rows &= (dataframe["triage_impression_during_call"] == triage_impression)
@@ -180,18 +169,6 @@ def plot_percentage_below_threshold_per_hour(
     triage_impression: str = None,
     cancelled: bool = False
 ):
-    """
-    Plots the percentage of time differences below a specified threshold for each hour of the day,
-    with options to filter rows based on triage impression and cancelled status.
-
-    Parameters:
-    - dataframe: pd.DataFrame containing the data.
-    - column_start: The name of the start time column.
-    - column_end: The name of the end time column.
-    - threshold: The threshold (in minutes) to calculate the percentage for.
-    - triage_impression: If not None, exclude rows with this value in the triage_impression_during_call column.
-    - cancelled: If True, only consider rows where the time from ambulance dispatch to hospital is missing.
-    """
     valid_rows = dataframe[column_start].notnull() & dataframe[column_end].notnull()
     if triage_impression is not None:
         valid_rows &= (dataframe["triage_impression_during_call"] == triage_impression)
