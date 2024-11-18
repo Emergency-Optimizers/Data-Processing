@@ -6,7 +6,7 @@ matplotlib==3.8.0
 pyproj==3.6.1
 seaborn==0.13.0
 folium==0.14.0
-geopandas==0.14.0
+geopandas==0.14.4
 scipy==1.11.3
 numpy==1.26.1
 osmnx==1.7.1
